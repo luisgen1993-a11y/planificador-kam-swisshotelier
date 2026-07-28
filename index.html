@@ -18,7 +18,12 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">Swiss Hotelier | Target $27.50/hr</h1>
-                    <p class="text-xs text-slate-400">Planificador de Alto Rendimiento para KAM</p>
+                    <p class="text-xs text-slate-400 flex items-center gap-1">
+                        Planificador de Alto Rendimiento para KAM
+                        <span id="cloudStatus" class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Conectado a Google
+                        </span>
+                    </p>
                 </div>
             </div>
             
@@ -228,7 +233,7 @@
             </div>
 
             <div class="border-t border-slate-700 pt-4 mt-6 flex justify-between items-center">
-                <button onclick="copyReportToClipboard()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white rounded-lg transition flex items-center gap-2">
+                <button onclick="copyReportToClipboard(event)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white rounded-lg transition flex items-center gap-2">
                     <i class="fa-regular fa-copy"></i> Copiar Resumen
                 </button>
                 <button onclick="closeReport()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition">
@@ -239,6 +244,9 @@
     </div>
 
     <script>
+        // URL de tu Google Apps Script
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmxmx6Sp9Jjjv8YGuWwesYhGFTv4DbTIWURsyUzt4ETW71XkCW7dUpAsNG7NKqANXf/exec';
+
         const blocksData = [
             {
                 id: 'block1',
@@ -339,12 +347,25 @@
             loadDataForDate();
         });
 
+        function setCloudStatus(status, message) {
+            const el = document.getElementById('cloudStatus');
+            if (!el) return;
+            if (status === 'syncing') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando...';
+            } else if (status === 'saved') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Guardado en Google';
+            } else if (status === 'error') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-xs mr-1"></i>Error Sincro (Local)';
+            }
+        }
+
         function loadGlobalSettings() {
             const saved = localStorage.getItem('swiss_kam_global_settings');
             if (saved) {
-                try {
-                    globalSettings = JSON.parse(saved);
-                } catch(e) { console.error(e); }
+                try { globalSettings = JSON.parse(saved); } catch(e) {}
             }
             document.getElementById('recurrentHotelsInput').value = globalSettings.recurrentHotels || 50;
         }
@@ -355,41 +376,72 @@
             updateCommissions();
         }
 
-        function getStorageKey(dateStr) {
-            return `swiss_kam_checklist_${dateStr || appState.date}`;
-        }
-
-        function saveData() {
-            localStorage.setItem(getStorageKey(), JSON.stringify(appState));
-            updateMetrics();
-            updateCommissions();
-        }
-
-        function loadDataForDate() {
-            const saved = localStorage.getItem(getStorageKey());
-            if (saved) {
-                try {
-                    appState = JSON.parse(saved);
-                } catch(e) {
-                    appState = { date: appState.date, completedTasks: {}, salesList: [] };
-                }
-            } else {
-                appState = {
-                    date: appState.date,
-                    completedTasks: {},
-                    salesList: []
-                };
-            }
-            if (!appState.salesList) appState.salesList = [];
+        // Cargar datos desde Google Apps Script (con respaldo en LocalStorage)
+        async function loadDataForDate() {
+            setCloudStatus('syncing');
+            const localKey = `swiss_kam_checklist_${appState.date}`;
             
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && (data.completedTasks || data.salesList)) {
+                        appState.completedTasks = data.completedTasks || {};
+                        appState.salesList = data.salesList || [];
+                        localStorage.setItem(localKey, JSON.stringify(appState));
+                    } else {
+                        // Si no hay datos remotos, buscar en local
+                        const savedLocal = localStorage.getItem(localKey);
+                        appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
+                    }
+                } else {
+                    throw new Error('Response not ok');
+                }
+                setCloudStatus('saved');
+            } catch (err) {
+                console.warn('Cargando desde fallback local:', err);
+                const savedLocal = localStorage.getItem(localKey);
+                appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
+                setCloudStatus('error');
+            }
+
+            if (!appState.salesList) appState.salesList = [];
             renderBlocks();
             renderSales();
             updateMetrics();
             updateCommissions();
         }
 
+        // Guardar datos en Google Apps Script y LocalStorage
+        async function saveData() {
+            setCloudStatus('syncing');
+            const localKey = `swiss_kam_checklist_${appState.date}`;
+            localStorage.setItem(localKey, JSON.stringify(appState));
+
+            updateMetrics();
+            updateCommissions();
+
+            try {
+                // Usamos no-cors/text POST para Apps Script
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'saveData',
+                        date: appState.date,
+                        payload: appState
+                    })
+                });
+                setCloudStatus('saved');
+            } catch (err) {
+                console.error('Error al guardar en Google Sheets:', err);
+                setCloudStatus('error');
+            }
+        }
+
         function getMonthlyAggregates() {
-            const currentYearMonth = appState.date.substring(0, 7); // YYYY-MM
+            const currentYearMonth = appState.date.substring(0, 7);
             let totalMonthlySalesAmount = 0;
             let totalMonthlySalesCount = 0;
             let totalMonthlyActivations = 0;
@@ -658,11 +710,13 @@
         }
 
         function resetDay() {
-            appState.completedTasks = {};
-            appState.salesList = [];
-            saveData();
-            renderBlocks();
-            renderSales();
+            if (confirm("¿Estás seguro de que deseas reiniciar las tareas y ventas registradas de hoy?")) {
+                appState.completedTasks = {};
+                appState.salesList = [];
+                saveData();
+                renderBlocks();
+                renderSales();
+            }
         }
 
         function downloadExcel() {
@@ -738,7 +792,7 @@
             });
 
             salesSheetData.push([]);
-            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length - 1)})` }]);
+            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length + 1)})` }]);
 
             const wsSales = XLSX.utils.aoa_to_sheet(salesSheetData);
             wsSales['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 }];
@@ -846,7 +900,7 @@
             document.getElementById('reportModal').classList.add('hidden');
         }
 
-        function copyReportToClipboard() {
+        function copyReportToClipboard(event) {
             let weightedScoreSum = 0;
             let textReport = `--- INFORME DE RENDIMIENTO SWISS HOTELIER ---\nFecha: ${appState.date}\n\n`;
 
@@ -860,17 +914,14 @@
             const monthlyData = getMonthlyAggregates();
             textReport += `\nSCORE GLOBAL: ${overallScore}%\nActivaciones Mes: ${monthlyData.activations}/4\n--------------------------------------------`;
 
-            const tempInput = document.createElement('textarea');
-            tempInput.value = textReport;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-
-            const btn = event.currentTarget;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
-            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            navigator.clipboard.writeText(textReport).then(() => {
+                const btn = event.currentTarget;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
+                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            }).catch(err => {
+                console.error("Error al copiar: ", err);
+            });
         }
     </script>
 </body>
