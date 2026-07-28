@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swiss Hotelier - Daily Execution Checklist & Excel Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen pb-12">
+
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500 text-slate-900 p-2 rounded-lg font-bold">
+                    <i class="fa-solid fa-hotel text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-white tracking-wide">Swiss Hotelier | Target $27.50/hr</h1>
+                    <p class="text-xs text-slate-400">Planificador de Alto Rendimiento para KAM</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-wrap">
+                <input type="date" id="datePicker" class="bg-slate-700 border border-slate-600 text-sm rounded-lg px-3 py-1.5 text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                <button onclick="downloadExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition border border-emerald-500 shadow-md flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-excel text-sm"></i> Descargar Excel (.xlsx)
+                </button>
+                <button onclick="resetDay()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-lg transition border border-slate-600">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> Reiniciar Día
+                </button>
+                <button onclick="generateReport()" class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition shadow-md shadow-emerald-500/20">
+                    <i class="fa-solid fa-chart-pie mr-1"></i> Generar Informe
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Score Diario Global</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="overallScore" class="text-3xl font-extrabold text-emerald-400">0%</span>
+                    <span id="overallStatus" class="text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">Pendiente</span>
+                </div>
+                <div class="w-full bg-slate-700 h-2 rounded-full mt-3 overflow-hidden">
+                    <div id="overallProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Tareas Completadas Hoy</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="tasksRatio" class="text-3xl font-extrabold text-blue-400">0/15</span>
+                    <i class="fa-solid fa-list-check text-slate-600 text-xl"></i>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Acciones ejecutadas en esta fecha</p>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Bloque de Oro (Ventas)</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="goldBlockScore" class="text-3xl font-extrabold text-amber-400">0%</span>
+                    <i class="fa-solid fa-fire text-amber-500/40 text-xl"></i>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">09:00 AM - 11:30 AM (Prospección)</p>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Activaciones del Mes</div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span id="activationsCount" class="text-3xl font-extrabold text-purple-400">0</span>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400">/ 4 Meta</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Bono $200 (Acumulado Mes)</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b border-slate-700 pb-3">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400"></i> Calculadora de Ingresos & Ritmo $27.50/hr
+                    </h2>
+                    <p class="text-xs text-slate-400">Proyección mensual acumulada de Salario Base, Bonos y Comisiones</p>
+                </div>
+                <div class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-right">
+                    <div class="text-xs text-slate-400">Tarifa Efectiva Mensual</div>
+                    <div id="hourlyRateDisplay" class="text-xl font-extrabold text-emerald-400">$0.00 / hr</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <label class="block text-xs text-slate-400 mb-1">Base Fija (Salario + Internet)</label>
+                    <div class="text-lg font-bold text-white">$1,066.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
+                    <span class="text-[10px] text-slate-500">$1,016 base + $50 internet</span>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <label class="block text-xs text-slate-400 mb-1">Base Hoteles Recurrentes ($12/mes)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="recurrentHotelsInput" onchange="updateGlobalRecurrentHotels(this.value)" min="0" value="50" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white font-bold text-sm focus:ring-1 focus:ring-emerald-500 outline-none">
+                        <span class="text-xs text-slate-400">hoteles</span>
+                    </div>
+                    <div id="recurrentIncomeDisplay" class="text-xs font-semibold text-emerald-400 mt-1">=$600.00 USD</div>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <label class="block text-xs text-slate-400 mb-1">Ventas Mes (One-Time)</label>
+                    <div id="oneTimeIncomeDisplay" class="text-lg font-bold text-amber-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
+                    <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 ventas en el mes</span>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <label class="block text-xs text-slate-400 mb-1">Bono Activaciones (≥4)</label>
+                    <div id="activationBonusDisplay" class="text-lg font-bold text-purple-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
+                    <span id="activationBonusNote" class="text-[10px] text-slate-500">Requiere 4 activaciones</span>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <label class="block text-xs text-slate-400 mb-1">Total Ingresos Est. Mes</label>
+                    <div id="totalMonthlyIncomeDisplay" class="text-lg font-black text-emerald-400">$1,666.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
+                    <span class="text-[10px] text-slate-400">Suma total acumulada del mes</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div class="w-full sm:w-1/2">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">Progreso hacia Meta Mensual ($4,583.33 USD)</span>
+                        <span id="targetPercentDisplay" class="font-bold text-emerald-400">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                        <div id="targetProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-receipt text-amber-400"></i> Registro de Ventas & Upsells del Día
+                    </h2>
+                    <p class="text-xs text-slate-400">Registra cada venta de la fecha seleccionada para sumarla a tus comisiones mensuales</p>
+                </div>
+                <span id="salesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                    $0.00 USD Hoy
+                </span>
+            </div>
+
+            <form onsubmit="handleAddSale(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Hotel / Cliente / Descripción</label>
+                    <input type="text" id="saleClient" required placeholder="Ej: Hotel Gran Playa" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Monto (USD)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1.5 text-slate-400 text-sm">$</span>
+                        <input type="number" id="saleAmount" step="0.01" min="1" required placeholder="200.00" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-7 pr-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Tipo de Ingreso</label>
+                    <select id="saleType" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <option value="activation">Activación (Setup Fee)</option>
+                        <option value="upsell">Upsell / Módulo Extra</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-lg transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20">
+                        <i class="fa-solid fa-plus"></i> Registrar Venta
+                    </button>
+                </div>
+            </form>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
+                            <th class="py-2 px-3">Fecha</th>
+                            <th class="py-2 px-3">Cliente / Hotel</th>
+                            <th class="py-2 px-3">Tipo</th>
+                            <th class="py-2 px-3 text-right">Monto (USD)</th>
+                            <th class="py-2 px-3 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesTableBody" class="divide-y divide-slate-700/50">
+                        <!-- Rendered via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="blocksContainer" class="space-y-6">
+            <!-- Dynamic Block Rendering via JS -->
+        </div>
+
+    </main>
+
+    <div id="reportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                        <i class="fa-solid fa-chart-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Informe de Rendimiento Diario</h2>
+                        <p id="modalReportDate" class="text-xs text-slate-400"></p>
+                    </div>
+                </div>
+                <button onclick="closeReport()" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="modalReportContent" class="space-y-6">
+                <!-- Dynamic Content -->
+            </div>
+
+            <div class="border-t border-slate-700 pt-4 mt-6 flex justify-between items-center">
+                <button onclick="copyReportToClipboard()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white rounded-lg transition flex items-center gap-2">
+                    <i class="fa-regular fa-copy"></i> Copiar Resumen
+                </button>
+                <button onclick="closeReport()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const blocksData = [
+            {
+                id: 'block1',
+                title: 'Bloque 1: Onboarding & Liberación de Comisiones',
+                time: '08:00 AM - 09:00 AM',
+                badge: 'Alto Impacto',
+                badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+                weight: 15,
+                tasks: [
+                    { id: 't1_1', text: 'Auditoría del Pipeline de Setup (cuentas estancadas)', pts: 25 },
+                    { id: 't1_2', text: 'Llamadas/mensajes directos a hoteleros para destrabar setup', pts: 35 },
+                    { id: 't1_3', text: 'Coordinación interna con equipo de soporte técnico', pts: 20 },
+                    { id: 't1_4', text: 'Verificación de meta de 4 activaciones mensuales', pts: 20 }
+                ]
+            },
+            {
+                id: 'block2',
+                title: 'Bloque 2: Prospección Directa & Demos (Bloque de Oro)',
+                time: '09:00 AM - 11:30 AM',
+                badge: 'Crítico / Ventas',
+                badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                weight: 35,
+                tasks: [
+                    { id: 't2_1', text: '10-15 contactos fríos/tibios a GMs o Propietarios de Hoteles', pts: 30 },
+                    { id: 't2_2', text: 'Ejecutar 1 a 2 reuniones de demostración del software', pts: 40 },
+                    { id: 't2_3', text: 'Envío de propuestas comerciales y acuerdos de inicio', pts: 30 }
+                ]
+            },
+            {
+                id: 'block3',
+                title: 'Bloque 3: Gestión Administrativa & CRM',
+                time: '11:30 AM - 12:30 PM',
+                badge: 'Operativo',
+                badgeColor: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+                weight: 10,
+                tasks: [
+                    { id: 't3_1', text: 'Actualización estricta de notas y fases en el CRM', pts: 50 },
+                    { id: 't3_2', text: 'Respuesta a correos y consultas operativas pendientes', pts: 50 }
+                ]
+            },
+            {
+                id: 'block4',
+                title: 'Bloque 4: Retención & Upselling ($12/mes Recurrente)',
+                time: '01:30 PM - 03:30 PM',
+                badge: 'Recurrencia & CSAT',
+                badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                weight: 25,
+                tasks: [
+                    { id: 't4_1', text: '3-5 llamadas de "Health Check" a clientes activos (>30 días)', pts: 50 },
+                    { id: 't4_2', text: 'Oferta de módulos adicionales / upgrades a cuentas maduras', pts: 50 }
+                ]
+            },
+            {
+                id: 'block5',
+                title: 'Bloque 5: Dominio de Producto & Competencia',
+                time: '03:30 PM - 04:30 PM',
+                badge: 'Capacitación',
+                badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                weight: 10,
+                tasks: [
+                    { id: 't5_1', text: 'Revisión de release notes, integraciones y mejoras del PMS', pts: 50 },
+                    { id: 't5_2', text: 'Análisis de la competencia y refinamiento de objeciones', pts: 50 }
+                ]
+            },
+            {
+                id: 'block6',
+                title: 'Bloque 6: Cierre del Día & Planificación',
+                time: '04:30 PM - 05:00 PM',
+                badge: 'Estratégico',
+                badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+                weight: 5,
+                tasks: [
+                    { id: 't6_1', text: 'Evaluación de métricas del día (activaciones y avances)', pts: 50 },
+                    { id: 't6_2', text: 'Bloqueo de agenda y prioridades fijadas para mañana', pts: 50 }
+                ]
+            }
+        ];
+
+        let appState = {
+            date: new Date().toISOString().split('T')[0],
+            completedTasks: {},
+            salesList: []
+        };
+
+        let globalSettings = {
+            recurrentHotels: 50
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGlobalSettings();
+            const datePicker = document.getElementById('datePicker');
+            datePicker.value = appState.date;
+            datePicker.addEventListener('change', (e) => {
+                appState.date = e.target.value;
+                loadDataForDate();
+            });
+            
+            loadDataForDate();
+        });
+
+        function loadGlobalSettings() {
+            const saved = localStorage.getItem('swiss_kam_global_settings');
+            if (saved) {
+                try {
+                    globalSettings = JSON.parse(saved);
+                } catch(e) { console.error(e); }
+            }
+            document.getElementById('recurrentHotelsInput').value = globalSettings.recurrentHotels || 50;
+        }
+
+        function updateGlobalRecurrentHotels(val) {
+            globalSettings.recurrentHotels = parseInt(val) || 0;
+            localStorage.setItem('swiss_kam_global_settings', JSON.stringify(globalSettings));
+            updateCommissions();
+        }
+
+        function getStorageKey(dateStr) {
+            return `swiss_kam_checklist_${dateStr || appState.date}`;
+        }
+
+        function saveData() {
+            localStorage.setItem(getStorageKey(), JSON.stringify(appState));
+            updateMetrics();
+            updateCommissions();
+        }
+
+        function loadDataForDate() {
+            const saved = localStorage.getItem(getStorageKey());
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                } catch(e) {
+                    appState = { date: appState.date, completedTasks: {}, salesList: [] };
+                }
+            } else {
+                appState = {
+                    date: appState.date,
+                    completedTasks: {},
+                    salesList: []
+                };
+            }
+            if (!appState.salesList) appState.salesList = [];
+            
+            renderBlocks();
+            renderSales();
+            updateMetrics();
+            updateCommissions();
+        }
+
+        function getMonthlyAggregates() {
+            const currentYearMonth = appState.date.substring(0, 7); // YYYY-MM
+            let totalMonthlySalesAmount = 0;
+            let totalMonthlySalesCount = 0;
+            let totalMonthlyActivations = 0;
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('swiss_kam_checklist_' + currentYearMonth)) {
+                    try {
+                        const dayData = JSON.parse(localStorage.getItem(key));
+                        if (dayData && dayData.salesList) {
+                            dayData.salesList.forEach(sale => {
+                                totalMonthlySalesAmount += parseFloat(sale.amount || 0);
+                                totalMonthlySalesCount++;
+                                if (sale.type === 'activation') {
+                                    totalMonthlyActivations++;
+                                }
+                            });
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            return {
+                amount: totalMonthlySalesAmount,
+                count: totalMonthlySalesCount,
+                activations: totalMonthlyActivations
+            };
+        }
+
+        function calculateBlockScore(block) {
+            let earned = 0;
+            let total = 0;
+            block.tasks.forEach(task => {
+                total += task.pts;
+                if (appState.completedTasks[task.id]) {
+                    earned += task.pts;
+                }
+            });
+            return total > 0 ? Math.round((earned / total) * 100) : 0;
+        }
+
+        function toggleTask(taskId) {
+            appState.completedTasks[taskId] = !appState.completedTasks[taskId];
+            saveData();
+            renderBlocks();
+        }
+
+        function updateMetrics() {
+            let totalTasksCount = 0;
+            let completedTasksCount = 0;
+            let weightedScoreSum = 0;
+            let goldBlockScoreVal = 0;
+
+            blocksData.forEach(block => {
+                const bScore = calculateBlockScore(block);
+                weightedScoreSum += (bScore * (block.weight / 100));
+                
+                if (block.id === 'block2') {
+                    goldBlockScoreVal = bScore;
+                }
+
+                block.tasks.forEach(task => {
+                    totalTasksCount++;
+                    if (appState.completedTasks[task.id]) {
+                        completedTasksCount++;
+                    }
+                });
+            });
+
+            const overallScoreVal = Math.round(weightedScoreSum);
+            
+            const scoreElem = document.getElementById('overallScore');
+            const statusElem = document.getElementById('overallStatus');
+            const progressElem = document.getElementById('overallProgressBar');
+
+            if (scoreElem) scoreElem.innerText = `${overallScoreVal}%`;
+            if (progressElem) progressElem.style.width = `${overallScoreVal}%`;
+
+            if (statusElem) {
+                if (overallScoreVal >= 85) {
+                    statusElem.innerText = 'Excelente';
+                    statusElem.className = 'text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30';
+                } else if (overallScoreVal >= 50) {
+                    statusElem.innerText = 'En Progreso';
+                    statusElem.className = 'text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30';
+                } else {
+                    statusElem.innerText = 'Pendiente';
+                    statusElem.className = 'text-xs px-2 py-1 rounded bg-slate-700 text-slate-300';
+                }
+            }
+
+            const tasksRatioElem = document.getElementById('tasksRatio');
+            if (tasksRatioElem) tasksRatioElem.innerText = `${completedTasksCount}/${totalTasksCount}`;
+
+            const goldElem = document.getElementById('goldBlockScore');
+            if (goldElem) goldElem.innerText = `${goldBlockScoreVal}%`;
+        }
+
+        function renderBlocks() {
+            const container = document.getElementById('blocksContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            blocksData.forEach(block => {
+                const score = calculateBlockScore(block);
+                
+                const blockCard = document.createElement('div');
+                blockCard.className = 'bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm hover:border-slate-600 transition';
+
+                let tasksHtml = '';
+                block.tasks.forEach(task => {
+                    const isChecked = !!appState.completedTasks[task.id];
+                    tasksHtml += `
+                        <label class="flex items-start space-x-3 p-3 bg-slate-900/60 hover:bg-slate-900/90 rounded-lg cursor-pointer transition border border-slate-700/50 group">
+                            <input type="checkbox" onchange="toggleTask('${task.id}')" ${isChecked ? 'checked' : ''} class="mt-1 h-4 w-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 focus:ring-offset-slate-900 cursor-pointer">
+                            <div class="flex-1">
+                                <span class="text-sm text-slate-200 group-hover:text-white transition ${isChecked ? 'line-through text-slate-500' : ''}">${task.text}</span>
+                            </div>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${task.pts} pts</span>
+                        </label>
+                    `;
+                });
+
+                blockCard.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-base font-bold text-white">${block.title}</h3>
+                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold border ${block.badgeColor}">${block.badge}</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-0.5">
+                                <i class="fa-regular fa-clock mr-1"></i>${block.time} &bull; <span class="text-slate-400 font-medium">Peso: ${block.weight}% del total</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <div class="text-sm font-extrabold text-emerald-400">${score}%</div>
+                                <div class="text-[10px] text-slate-400">Avance</div>
+                            </div>
+                            <div class="w-16 bg-slate-700 h-2 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: ${score}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${tasksHtml}
+                    </div>
+                `;
+
+                container.appendChild(blockCard);
+            });
+        }
+
+        function handleAddSale(e) {
+            e.preventDefault();
+            const clientInput = document.getElementById('saleClient');
+            const amountInput = document.getElementById('saleAmount');
+            const typeInput = document.getElementById('saleType');
+
+            const client = clientInput.value.trim();
+            const amount = parseFloat(amountInput.value) || 0;
+            const type = typeInput.value;
+
+            if (!client || amount <= 0) return;
+
+            const newSale = {
+                id: 'sale_' + Date.now(),
+                client: client,
+                amount: amount,
+                type: type,
+                date: appState.date
+            };
+
+            appState.salesList.push(newSale);
+
+            clientInput.value = '';
+            amountInput.value = '';
+
+            saveData();
+            renderSales();
+        }
+
+        function deleteSale(saleId) {
+            const saleIndex = appState.salesList.findIndex(s => s.id === saleId);
+            if (saleIndex > -1) {
+                appState.salesList.splice(saleIndex, 1);
+                saveData();
+                renderSales();
+            }
+        }
+
+        function renderSales() {
+            const tbody = document.getElementById('salesTableBody');
+            tbody.innerHTML = '';
+
+            if (!appState.salesList || appState.salesList.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-6 text-center text-slate-500 text-xs">
+                            No hay ventas registradas para este día. Registra tu primera venta arriba.
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('salesSummaryBadge').innerText = '$0.00 USD Hoy';
+                return;
+            }
+
+            let totalDailySales = 0;
+
+            appState.salesList.forEach(sale => {
+                totalDailySales += sale.amount;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30 transition';
+
+                const isActivation = sale.type === 'activation';
+                const typeTag = isActivation 
+                    ? '<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[11px] font-bold border border-purple-500/30"><i class="fa-solid fa-rocket mr-1"></i>Activación</span>'
+                    : '<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[11px] font-bold border border-blue-500/30"><i class="fa-solid fa-arrow-up-right-dots mr-1"></i>Upsell</span>';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-slate-400 text-xs">${sale.date}</td>
+                    <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
+                    <td class="py-2.5 px-3">${typeTag}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-amber-400">$${sale.amount.toFixed(2)} USD</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="deleteSale('${sale.id}')" class="text-slate-500 hover:text-rose-400 transition p-1" title="Eliminar registro">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('salesSummaryBadge').innerText = `$${totalDailySales.toFixed(2)} USD Hoy`;
+        }
+
+        function updateCommissions() {
+            const recurrentHotels = globalSettings.recurrentHotels || 50;
+
+            const baseIncome = 1066;
+            const recurrenceIncome = recurrentHotels * 12;
+
+            const monthlyData = getMonthlyAggregates();
+            const oneTimeIncome = monthlyData.amount;
+            const monthlyActivations = monthlyData.activations;
+
+            const bonusIncome = monthlyActivations >= 4 ? 200 : 0;
+
+            const totalMonthly = baseIncome + recurrenceIncome + oneTimeIncome + bonusIncome;
+            const hourlyRate = (totalMonthly * 12) / 2000;
+            const targetMonthly = 4583.33;
+            const targetPercent = Math.min(100, Math.round((totalMonthly / targetMonthly) * 100));
+
+            document.getElementById('activationsCount').innerText = monthlyActivations;
+            document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrenceIncome.toFixed(2)} USD`;
+            document.getElementById('oneTimeIncomeDisplay').innerText = `$${oneTimeIncome.toFixed(2)} USD`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} venta(s) este mes`;
+            
+            document.getElementById('activationBonusDisplay').innerText = `$${bonusIncome.toFixed(2)} USD`;
+            document.getElementById('activationBonusNote').innerText = monthlyActivations >= 4 ? '¡Bono alcanzado!' : `${monthlyActivations}/4 activaciones`;
+            
+            document.getElementById('totalMonthlyIncomeDisplay').innerText = `$${totalMonthly.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
+            document.getElementById('hourlyRateDisplay').innerText = `$${hourlyRate.toFixed(2)} / hr`;
+            document.getElementById('targetPercentDisplay').innerText = `${targetPercent}%`;
+            document.getElementById('targetProgressBar').style.width = `${targetPercent}%`;
+        }
+
+        function resetDay() {
+            appState.completedTasks = {};
+            appState.salesList = [];
+            saveData();
+            renderBlocks();
+            renderSales();
+        }
+
+        function downloadExcel() {
+            const wb = XLSX.utils.book_new();
+
+            const mainSheetData = [
+                ["Bloque", "Horario", "Impacto / Criterio", "Tarea / Acción Clave", "Puntos Max", "Completado (1 o 0)", "Puntos Ganados"]
+            ];
+
+            let rowIdx = 2;
+            blocksData.forEach(block => {
+                block.tasks.forEach(task => {
+                    const isDone = appState.completedTasks[task.id] ? 1 : 0;
+                    mainSheetData.push([
+                        block.title,
+                        block.time,
+                        block.badge,
+                        task.text,
+                        task.pts,
+                        isDone,
+                        { f: `IF(F${rowIdx}=1, E${rowIdx}, 0)` }
+                    ]);
+                    rowIdx++;
+                });
+            });
+
+            mainSheetData.push([]);
+            mainSheetData.push(["RESUMEN DE PONDERACIÓN Y SCORE DIARIO"]);
+            mainSheetData.push(["Bloque de Trabajo", "Peso (%)", "Estado Cumplimiento (%)"]);
+            
+            mainSheetData.push(["Bloque 1: Onboarding", 0.15, { f: "AVERAGE(G2:G5)/AVERAGE(E2:E5)" }]);
+            mainSheetData.push(["Bloque 2: Ventas (Oro)", 0.35, { f: "AVERAGE(G6:G8)/AVERAGE(E6:E8)" }]);
+            mainSheetData.push(["Bloque 3: CRM & Admin", 0.10, { f: "AVERAGE(G9:G10)/AVERAGE(E9:E10)" }]);
+            mainSheetData.push(["Bloque 4: Retención", 0.25, { f: "AVERAGE(G11:G12)/AVERAGE(E11:E12)" }]);
+            mainSheetData.push(["Bloque 5: Capacitación", 0.10, { f: "AVERAGE(G13:G14)/AVERAGE(E13:E14)" }]);
+            mainSheetData.push(["Bloque 6: Cierre Día", 0.05, { f: "AVERAGE(G15:G16)/AVERAGE(E15:E16)" }]);
+            
+            mainSheetData.push([]);
+            mainSheetData.push(["SCORE GLOBAL PONDERADO", "", { f: "SUMPRODUCT(B21:B26, C21:C26)" }]);
+
+            const wsMain = XLSX.utils.aoa_to_sheet(mainSheetData);
+            wsMain['!cols'] = [
+                { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 55 }, { wch: 12 }, { wch: 18 }, { wch: 15 }
+            ];
+
+            const salesSheetData = [
+                ["ID Registro", "Fecha", "Cliente / Hotel", "Tipo de Venta", "Monto (USD)"]
+            ];
+
+            const currentYearMonth = appState.date.substring(0, 7);
+            let monthlySalesArray = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('swiss_kam_checklist_' + currentYearMonth)) {
+                    try {
+                        const dayData = JSON.parse(localStorage.getItem(key));
+                        if (dayData && dayData.salesList) {
+                            monthlySalesArray = monthlySalesArray.concat(dayData.salesList);
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            monthlySalesArray.forEach(sale => {
+                salesSheetData.push([
+                    sale.id,
+                    sale.date,
+                    sale.client,
+                    sale.type === 'activation' ? 'Activación (Setup)' : 'Upsell / Módulo Extra',
+                    sale.amount
+                ]);
+            });
+
+            salesSheetData.push([]);
+            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length - 1)})` }]);
+
+            const wsSales = XLSX.utils.aoa_to_sheet(salesSheetData);
+            wsSales['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 }];
+
+            XLSX.utils.book_append_sheet(wb, wsMain, "Dashboard_Diario");
+            XLSX.utils.book_append_sheet(wb, wsSales, "Registro_Ventas_Mes");
+
+            const recurrentHotels = globalSettings.recurrentHotels || 50;
+            const monthlyData = getMonthlyAggregates();
+
+            const commissionsSheetData = [
+                ["CONCEPTO DE INGRESO", "CANTIDAD / VALOR", "TASA / MONTO", "SUBTOTAL MENSUAL (USD)"],
+                ["Salario Base Mensual", 1, 1016, 1016],
+                ["Subsidio de Internet", 1, 50, 50],
+                ["Comisión Recurrencia ($12/hotel)", recurrentHotels, 12, recurrentHotels * 12],
+                ["Ventas y Upsells (One-Time Payments)", monthlyData.count, "Variable", monthlyData.amount],
+                ["Bono por 4 Activaciones Mensuales", monthlyData.activations >= 4 ? 1 : 0, 200, monthlyData.activations >= 4 ? 200 : 0],
+                [],
+                ["TOTAL ESTIMADO MES (USD)", "", "", { f: "SUM(D2:D6)" }],
+                ["TARIFA POR HORA EQUIVALENTE", "", "", { f: "(D8*12)/2000" }],
+                ["META TARIFA OBJETIVO", "", "", 27.50],
+                ["CUMPLIMIENTO DE META (%)", "", "", { f: "D9/D10" }]
+            ];
+
+            const wsCommissions = XLSX.utils.aoa_to_sheet(commissionsSheetData);
+            wsCommissions['!cols'] = [{ wch: 35 }, { wch: 18 }, { wch: 18 }, { wch: 25 }];
+            XLSX.utils.book_append_sheet(wb, wsCommissions, "Calculo_Comisiones");
+
+            const fileName = `Planificador_KAM_SwissHotelier_${appState.date}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function generateReport() {
+            const dateStr = document.getElementById('datePicker').value;
+            document.getElementById('modalReportDate').innerText = `Fecha: ${dateStr}`;
+
+            let weightedScoreSum = 0;
+            let blockSummaries = '';
+
+            blocksData.forEach(block => {
+                const bScore = calculateBlockScore(block);
+                weightedScoreSum += (bScore * (block.weight / 100));
+
+                let icon = bScore >= 80 ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' :
+                           bScore >= 50 ? '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i>' :
+                                          '<i class="fa-solid fa-circle-xmark text-rose-400"></i>';
+
+                blockSummaries += `
+                    <div class="flex items-center justify-between p-3 bg-slate-900/60 rounded-lg border border-slate-700/50">
+                        <div class="flex items-center space-x-3">
+                            ${icon}
+                            <div>
+                                <div class="text-sm font-semibold text-slate-200">${block.title}</div>
+                                <div class="text-xs text-slate-400">${block.time}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-sm font-bold text-white">${bScore}%</span>
+                            <span class="text-xs text-slate-500 block">Peso: ${block.weight}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const overallScore = Math.round(weightedScoreSum);
+            const monthlyData = getMonthlyAggregates();
+            
+            let diagnosticText = '';
+            if (overallScore >= 90) {
+                diagnosticText = '<strong>Diagnóstico:</strong> Excelente ejecución. Estás operando al ritmo requerido para asegurar la tasa de $27.50 USD/hora.';
+            } else if (overallScore >= 75) {
+                diagnosticText = '<strong>Diagnóstico:</strong> Buen desempeño comercial. Cumpliste con la mayoría de las actividades de alto impacto.';
+            } else {
+                diagnosticText = '<strong>Diagnóstico:</strong> Jornada con desviaciones. Se requiere mayor disciplina en el Bloque de Oro y onboarding.';
+            }
+
+            const htmlContent = `
+                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
+                    <span class="text-xs uppercase text-slate-400 font-semibold tracking-wider">Score Global de Rendimiento</span>
+                    <div class="text-4xl font-extrabold text-emerald-400 my-1">${overallScore}%</div>
+                    <p class="text-xs text-slate-300 mt-2">${diagnosticText}</p>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Desglose por Bloques de Tiempo</h4>
+                    <div class="space-y-2">
+                        ${blockSummaries}
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700/50">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avance de Metas Clave del Mes</h4>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-300">Hoteles activados este mes:</span>
+                        <span class="font-bold text-purple-400">${monthlyData.activations} / 4 Meta</span>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modalReportContent').innerHTML = htmlContent;
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        function closeReport() {
+            document.getElementById('reportModal').classList.add('hidden');
+        }
+
+        function copyReportToClipboard() {
+            let weightedScoreSum = 0;
+            let textReport = `--- INFORME DE RENDIMIENTO SWISS HOTELIER ---\nFecha: ${appState.date}\n\n`;
+
+            blocksData.forEach(block => {
+                const bScore = calculateBlockScore(block);
+                weightedScoreSum += (bScore * (block.weight / 100));
+                textReport += `• ${block.title}: ${bScore}%\n`;
+            });
+
+            const overallScore = Math.round(weightedScoreSum);
+            const monthlyData = getMonthlyAggregates();
+            textReport += `\nSCORE GLOBAL: ${overallScore}%\nActivaciones Mes: ${monthlyData.activations}/4\n--------------------------------------------`;
+
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textReport;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
+            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+        }
+    </script>
+</body>
+</html>
