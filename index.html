@@ -59,7 +59,7 @@
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Tareas Completadas Hoy</div>
                 <div class="flex items-baseline justify-between">
-                    <span id="tasksRatio" class="text-3xl font-extrabold text-blue-400">0/15</span>
+                    <span id="tasksRatio" class="text-3xl font-extrabold text-blue-400">0/17</span>
                     <i class="fa-solid fa-list-check text-slate-600 text-xl"></i>
                 </div>
                 <p class="text-xs text-slate-400 mt-2">Acciones ejecutadas en esta fecha</p>
@@ -244,7 +244,6 @@
     </div>
 
     <script>
-        // URL de tu Google Apps Script
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmxmx6Sp9Jjjv8YGuWwesYhGFTv4DbTIWURsyUzt4ETW71XkCW7dUpAsNG7NKqANXf/exec';
 
         const blocksData = [
@@ -270,9 +269,11 @@
                 badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
                 weight: 35,
                 tasks: [
-                    { id: 't2_1', text: '10-15 contactos fríos/tibios a GMs o Propietarios de Hoteles', pts: 30 },
-                    { id: 't2_2', text: 'Ejecutar 1 a 2 reuniones de demostración del software', pts: 40 },
-                    { id: 't2_3', text: 'Envío de propuestas comerciales y acuerdos de inicio', pts: 30 }
+                    { id: 't2_1', text: 'Agregar 10 hoteles nuevos al CRM (buscar contactos por medio de Apollo o mandar correo de "Abrecaminos")', pts: 20 },
+                    { id: 't2_2', text: 'Buscar y agregar 10 a 20 prospectos nuevos a la base de datos en Excel', pts: 15 },
+                    { id: 't2_3', text: 'Completar todas las tareas del CRM relacionadas con prospección y seguimiento', pts: 20 },
+                    { id: 't2_4', text: 'Envío de propuestas comerciales y acuerdos de inicio', pts: 20 },
+                    { id: 't2_5', text: 'Ejecutar 1 a 2 reuniones de demostración del software', pts: 25 }
                 ]
             },
             {
@@ -347,25 +348,42 @@
             loadDataForDate();
         });
 
-        function setCloudStatus(status, message) {
-            const el = document.getElementById('cloudStatus');
-            if (!el) return;
-            if (status === 'syncing') {
-                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
-                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando...';
-            } else if (status === 'saved') {
-                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-                el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Guardado en Google';
-            } else if (status === 'error') {
-                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
-                el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-xs mr-1"></i>Error Sincro (Local)';
+        async function syncToGoogleSheets(data) {
+            const cloudStatus = document.getElementById('cloudStatus');
+            if (!SCRIPT_URL) return;
+
+            try {
+                if (cloudStatus) {
+                    cloudStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Sincronizando...';
+                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/30';
+                }
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (cloudStatus) {
+                    cloudStatus.innerHTML = '<i class="fa-solid fa-cloud-check text-emerald-400 mr-1"></i>Conectado a Google';
+                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300';
+                }
+            } catch (err) {
+                console.error("Error al sincronizar con Google Apps Script:", err);
+                if (cloudStatus) {
+                    cloudStatus.innerHTML = '<i class="fa-solid fa-cloud-xmark text-rose-400 mr-1"></i>Error Sincro';
+                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-500/30';
+                }
             }
         }
 
         function loadGlobalSettings() {
             const saved = localStorage.getItem('swiss_kam_global_settings');
             if (saved) {
-                try { globalSettings = JSON.parse(saved); } catch(e) {}
+                try {
+                    globalSettings = JSON.parse(saved);
+                } catch(e) { console.error(e); }
             }
             document.getElementById('recurrentHotelsInput').value = globalSettings.recurrentHotels || 50;
         }
@@ -376,68 +394,38 @@
             updateCommissions();
         }
 
-        // Cargar datos desde Google Apps Script (con respaldo en LocalStorage)
-        async function loadDataForDate() {
-            setCloudStatus('syncing');
-            const localKey = `swiss_kam_checklist_${appState.date}`;
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && (data.completedTasks || data.salesList)) {
-                        appState.completedTasks = data.completedTasks || {};
-                        appState.salesList = data.salesList || [];
-                        localStorage.setItem(localKey, JSON.stringify(appState));
-                    } else {
-                        // Si no hay datos remotos, buscar en local
-                        const savedLocal = localStorage.getItem(localKey);
-                        appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
-                    }
-                } else {
-                    throw new Error('Response not ok');
-                }
-                setCloudStatus('saved');
-            } catch (err) {
-                console.warn('Cargando desde fallback local:', err);
-                const savedLocal = localStorage.getItem(localKey);
-                appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
-                setCloudStatus('error');
-            }
+        function getStorageKey(dateStr) {
+            return `swiss_kam_checklist_${dateStr || appState.date}`;
+        }
 
+        function saveData() {
+            localStorage.setItem(getStorageKey(), JSON.stringify(appState));
+            updateMetrics();
+            updateCommissions();
+            syncToGoogleSheets(appState);
+        }
+
+        function loadDataForDate() {
+            const saved = localStorage.getItem(getStorageKey());
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                } catch(e) {
+                    appState = { date: appState.date, completedTasks: {}, salesList: [] };
+                }
+            } else {
+                appState = {
+                    date: appState.date,
+                    completedTasks: {},
+                    salesList: []
+                };
+            }
             if (!appState.salesList) appState.salesList = [];
+            
             renderBlocks();
             renderSales();
             updateMetrics();
             updateCommissions();
-        }
-
-        // Guardar datos en Google Apps Script y LocalStorage
-        async function saveData() {
-            setCloudStatus('syncing');
-            const localKey = `swiss_kam_checklist_${appState.date}`;
-            localStorage.setItem(localKey, JSON.stringify(appState));
-
-            updateMetrics();
-            updateCommissions();
-
-            try {
-                // Usamos no-cors/text POST para Apps Script
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'saveData',
-                        date: appState.date,
-                        payload: appState
-                    })
-                });
-                setCloudStatus('saved');
-            } catch (err) {
-                console.error('Error al guardar en Google Sheets:', err);
-                setCloudStatus('error');
-            }
         }
 
         function getMonthlyAggregates() {
@@ -560,7 +548,7 @@
                             <div class="flex-1">
                                 <span class="text-sm text-slate-200 group-hover:text-white transition ${isChecked ? 'line-through text-slate-500' : ''}">${task.text}</span>
                             </div>
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${task.pts} pts</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap">${task.pts} pts</span>
                         </label>
                     `;
                 });
@@ -710,13 +698,11 @@
         }
 
         function resetDay() {
-            if (confirm("¿Estás seguro de que deseas reiniciar las tareas y ventas registradas de hoy?")) {
-                appState.completedTasks = {};
-                appState.salesList = [];
-                saveData();
-                renderBlocks();
-                renderSales();
-            }
+            appState.completedTasks = {};
+            appState.salesList = [];
+            saveData();
+            renderBlocks();
+            renderSales();
         }
 
         function downloadExcel() {
@@ -727,7 +713,10 @@
             ];
 
             let rowIdx = 2;
+            const blockRowRanges = [];
+
             blocksData.forEach(block => {
+                const startRow = rowIdx;
                 block.tasks.forEach(task => {
                     const isDone = appState.completedTasks[task.id] ? 1 : 0;
                     mainSheetData.push([
@@ -741,25 +730,32 @@
                     ]);
                     rowIdx++;
                 });
+                const endRow = rowIdx - 1;
+                blockRowRanges.push({ title: block.title, weight: block.weight / 100, startRow, endRow });
             });
 
             mainSheetData.push([]);
             mainSheetData.push(["RESUMEN DE PONDERACIÓN Y SCORE DIARIO"]);
             mainSheetData.push(["Bloque de Trabajo", "Peso (%)", "Estado Cumplimiento (%)"]);
             
-            mainSheetData.push(["Bloque 1: Onboarding", 0.15, { f: "AVERAGE(G2:G5)/AVERAGE(E2:E5)" }]);
-            mainSheetData.push(["Bloque 2: Ventas (Oro)", 0.35, { f: "AVERAGE(G6:G8)/AVERAGE(E6:E8)" }]);
-            mainSheetData.push(["Bloque 3: CRM & Admin", 0.10, { f: "AVERAGE(G9:G10)/AVERAGE(E9:E10)" }]);
-            mainSheetData.push(["Bloque 4: Retención", 0.25, { f: "AVERAGE(G11:G12)/AVERAGE(E11:E12)" }]);
-            mainSheetData.push(["Bloque 5: Capacitación", 0.10, { f: "AVERAGE(G13:G14)/AVERAGE(E13:E14)" }]);
-            mainSheetData.push(["Bloque 6: Cierre Día", 0.05, { f: "AVERAGE(G15:G16)/AVERAGE(E15:E16)" }]);
+            const summaryStartRow = mainSheetData.length + 1;
+            
+            blockRowRanges.forEach(b => {
+                mainSheetData.push([
+                    b.title,
+                    b.weight,
+                    { f: `SUM(G${b.startRow}:G${b.endRow})/SUM(E${b.startRow}:E${b.endRow})` }
+                ]);
+            });
+
+            const summaryEndRow = mainSheetData.length;
             
             mainSheetData.push([]);
-            mainSheetData.push(["SCORE GLOBAL PONDERADO", "", { f: "SUMPRODUCT(B21:B26, C21:C26)" }]);
+            mainSheetData.push(["SCORE GLOBAL PONDERADO", "", { f: `SUMPRODUCT(B${summaryStartRow}:B${summaryEndRow}, C${summaryStartRow}:C${summaryEndRow})` }]);
 
             const wsMain = XLSX.utils.aoa_to_sheet(mainSheetData);
             wsMain['!cols'] = [
-                { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 55 }, { wch: 12 }, { wch: 18 }, { wch: 15 }
+                { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 65 }, { wch: 12 }, { wch: 18 }, { wch: 15 }
             ];
 
             const salesSheetData = [
@@ -792,7 +788,7 @@
             });
 
             salesSheetData.push([]);
-            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length + 1)})` }]);
+            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length - 1)})` }]);
 
             const wsSales = XLSX.utils.aoa_to_sheet(salesSheetData);
             wsSales['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 }];
@@ -914,14 +910,17 @@
             const monthlyData = getMonthlyAggregates();
             textReport += `\nSCORE GLOBAL: ${overallScore}%\nActivaciones Mes: ${monthlyData.activations}/4\n--------------------------------------------`;
 
-            navigator.clipboard.writeText(textReport).then(() => {
-                const btn = event.currentTarget;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
-                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
-            }).catch(err => {
-                console.error("Error al copiar: ", err);
-            });
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textReport;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
+            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
         }
     </script>
 </body>
