@@ -92,7 +92,7 @@
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
                         <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección de Ingresos ($27.50/hr)
                     </h2>
-                    <p class="text-xs text-slate-400">Cálculo consolidado del mes seleccionado basado en Salario Base, Recurrentes y Ventas Registradas</p>
+                    <p class="text-xs text-slate-400">Cálculo consolidado del mes (Sincronizado 100% desde Google Sheets)</p>
                 </div>
                 <div class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-right">
                     <div class="text-xs text-slate-400">Tarifa Efectiva Mensual</div>
@@ -206,14 +206,14 @@
             </div>
         </div>
 
-        <!-- NUEVA SECCIÓN: Tabla Centralizada de Ventas del Mes -->
+        <!-- Tabla Centralizada de Ventas del Mes -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
                         <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Consolidadas del Mes
                     </h2>
-                    <p class="text-xs text-slate-400">Histórico completo de todos los cierres y upsells del mes seleccionado</p>
+                    <p class="text-xs text-slate-400">Histórico completo de cierres recuperado en vivo desde la nube</p>
                 </div>
                 <span id="monthlySalesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
                     $0.00 USD Acumulado
@@ -366,6 +366,7 @@
             salesList: []
         };
 
+        let monthlyRemoteList = [];
         let globalSettings = { recurrentHotels: 50 };
         let isFetchingRemote = false;
 
@@ -386,7 +387,7 @@
             if (!el) return;
             if (status === 'syncing') {
                 el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
-                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando...';
+                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando Nube...';
             } else if (status === 'saved') {
                 el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
                 el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Conectado a Google';
@@ -414,11 +415,13 @@
             isFetchingRemote = true;
             setCloudStatus('syncing');
             const localKey = `swiss_kam_checklist_${appState.date}`;
+            const currentMonth = appState.date.substring(0, 7);
             
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
-                if (response.ok) {
-                    const data = await response.json();
+                // 1. Cargar datos del día seleccionado
+                const dayRes = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
+                if (dayRes.ok) {
+                    const data = await dayRes.json();
                     if (data && (data.completedTasks || data.salesList)) {
                         appState.completedTasks = data.completedTasks || {};
                         appState.salesList = data.salesList || [];
@@ -427,9 +430,15 @@
                         const savedLocal = localStorage.getItem(localKey);
                         appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
                     }
-                } else {
-                    throw new Error('Sin respuesta del servidor');
                 }
+
+                // 2. Cargar datos consolidados de TODO el mes directamente desde Google Sheets
+                const monthRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${currentMonth}`);
+                if (monthRes.ok) {
+                    const mData = await monthRes.json();
+                    monthlyRemoteList = mData.monthlyData || [];
+                }
+
                 setCloudStatus('saved');
             } catch (err) {
                 console.warn('Utilizando cache local:', err);
@@ -457,6 +466,19 @@
             const localKey = `swiss_kam_checklist_${appState.date}`;
             localStorage.setItem(localKey, JSON.stringify(appState));
 
+            // Actualizar lista mensual remota localmente mientras se envía
+            let updated = false;
+            for (let i = 0; i < monthlyRemoteList.length; i++) {
+                if (monthlyRemoteList[i].date === appState.date) {
+                    monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
+                    updated = true;
+                    break;
+                }
+            }
+            if (!updated) {
+                monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
+            }
+
             updateMetrics();
             updateCommissions();
             renderMonthlySalesTable();
@@ -480,35 +502,28 @@
         }
 
         function getMonthlyAggregates() {
-            const currentYearMonth = appState.date.substring(0, 7);
             let totalMonthlySalesAmount = 0;
             let totalMonthlySalesCount = 0;
             let totalMonthlyActivations = 0;
             let totalMonthlyUpsells = 0;
             let allMonthlySalesList = [];
 
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('swiss_kam_checklist_' + currentYearMonth)) {
-                    try {
-                        const dayData = JSON.parse(localStorage.getItem(key));
-                        if (dayData && dayData.salesList) {
-                            dayData.salesList.forEach(sale => {
-                                totalMonthlySalesAmount += parseFloat(sale.amount || 0);
-                                totalMonthlySalesCount++;
-                                if (sale.type === 'activation') {
-                                    totalMonthlyActivations++;
-                                } else if (sale.type === 'upsell') {
-                                    totalMonthlyUpsells++;
-                                }
-                                allMonthlySalesList.push(sale);
-                            });
+            monthlyRemoteList.forEach(dayData => {
+                if (dayData && dayData.salesList) {
+                    dayData.salesList.forEach(sale => {
+                        totalMonthlySalesAmount += parseFloat(sale.amount || 0);
+                        totalMonthlySalesCount++;
+                        if (sale.type === 'activation') {
+                            totalMonthlyActivations++;
+                        } else if (sale.type === 'upsell') {
+                            totalMonthlyUpsells++;
                         }
-                    } catch(e) {}
+                        allMonthlySalesList.push(sale);
+                    });
                 }
-            }
+            });
 
-            allMonthlySalesList.sort((a, b) => a.date.localeCompare(b.date));
+            allMonthlySalesList.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
             return {
                 amount: totalMonthlySalesAmount,
@@ -713,7 +728,7 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
-                            Aún no hay ventas registradas en el mes seleccionado.
+                            Aún no hay ventas registradas en la nube para el mes seleccionado.
                         </td>
                     </tr>
                 `;
@@ -753,7 +768,6 @@
             const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + activationBonus;
             const effectiveHourlyRate = totalMonthlyEst / 160.0;
 
-            // Actualizar tarjetas principales
             document.getElementById('activationsCount').innerText = activationCount;
             document.getElementById('upsellsCount').innerText = upsellCount;
 
@@ -766,7 +780,6 @@
                 actNote.className = 'text-xs text-purple-300/80 mt-2';
             }
 
-            // Actualizar Calculadora
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en el mes`;
@@ -806,7 +819,6 @@
             let wb = XLSX.utils.book_new();
             const monthlyData = getMonthlyAggregates();
 
-            // Hoja 1: Resumen Mensual & Proyección
             let monthlySummaryData = [
                 ["MES EVALUADO", appState.date.substring(0, 7)],
                 ["SISTEMA", "Swiss Hotelier KAM Executive Hub"],
@@ -825,7 +837,6 @@
             let wsMonthly = XLSX.utils.aoa_to_sheet(monthlySummaryData);
             XLSX.utils.book_append_sheet(wb, wsMonthly, "Resumen del Mes");
 
-            // Hoja 2: Cierres del Mes (Consolidado)
             let salesMonthlyData = [["Fecha Registro", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
             if (monthlyData.salesList.length > 0) {
                 monthlyData.salesList.forEach(s => {
@@ -837,7 +848,6 @@
             let wsSalesMonthly = XLSX.utils.aoa_to_sheet(salesMonthlyData);
             XLSX.utils.book_append_sheet(wb, wsSalesMonthly, "Consolidado Ventas Mes");
 
-            // Hoja 3: Checklist del Día Seleccionado
             let checklistData = [["Bloque", "Tarea", "Puntos", "Estado"]];
             blocksData.forEach(b => {
                 b.tasks.forEach(t => {
