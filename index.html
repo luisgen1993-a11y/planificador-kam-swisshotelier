@@ -28,7 +28,12 @@
             </div>
             
             <div class="flex items-center gap-3 flex-wrap">
-                <input type="date" id="datePicker" class="bg-slate-700 border border-slate-600 text-sm rounded-lg px-3 py-1.5 text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                <!-- Selector de Día -->
+                <div class="flex items-center bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 gap-2">
+                    <span class="text-[11px] text-slate-400 font-semibold uppercase">Día:</span>
+                    <input type="date" id="datePicker" class="bg-transparent text-sm text-white focus:outline-none cursor-pointer">
+                </div>
+
                 <button onclick="downloadExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition border border-emerald-500 shadow-md flex items-center gap-1.5">
                     <i class="fa-solid fa-file-excel text-sm"></i> Descargar Excel (.xlsx)
                 </button>
@@ -85,14 +90,23 @@
             </div>
         </div>
 
-        <!-- Calculadora Resumen del Mes -->
+        <!-- Calculadora Resumen del Mes (Con Selector de Mes Integrado) -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b border-slate-700 pb-3">
                 <div>
-                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección de Ingresos ($27.50/hr)
-                    </h2>
-                    <p class="text-xs text-slate-400">Cálculo consolidado del mes (Sincronizado 100% desde Google Sheets)</p>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección
+                        </h2>
+                        
+                        <!-- SELECTOR DE MES -->
+                        <div class="flex items-center bg-slate-900 border border-emerald-500/50 rounded-lg px-2.5 py-1 gap-2 shadow-inner">
+                            <i class="fa-solid fa-calendar-days text-emerald-400 text-xs"></i>
+                            <span class="text-xs text-slate-400 font-semibold">Consultar Mes:</span>
+                            <input type="month" id="monthPicker" class="bg-transparent text-sm font-bold text-emerald-300 focus:outline-none cursor-pointer">
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Cálculo consolidado recuperado en vivo desde la nube para el mes seleccionado</p>
                 </div>
                 <div class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-right">
                     <div class="text-xs text-slate-400">Tarifa Efectiva Mensual</div>
@@ -211,9 +225,9 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Consolidadas del Mes
+                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Consolidadas del Mes (<span id="selectedMonthTitle">--</span>)
                     </h2>
-                    <p class="text-xs text-slate-400">Histórico completo de cierres recuperado en vivo desde la nube</p>
+                    <p class="text-xs text-slate-400">Histórico completo de cierres para el periodo seleccionado</p>
                 </div>
                 <span id="monthlySalesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
                     $0.00 USD Acumulado
@@ -366,17 +380,37 @@
             salesList: []
         };
 
+        let selectedMonth = new Date().toISOString().substring(0, 7); // Formato YYYY-MM
         let monthlyRemoteList = [];
         let globalSettings = { recurrentHotels: 50 };
         let isFetchingRemote = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadGlobalSettings();
+            
             const datePicker = document.getElementById('datePicker');
+            const monthPicker = document.getElementById('monthPicker');
+
             datePicker.value = appState.date;
+            monthPicker.value = selectedMonth;
+
+            // Escuchar cambio de fecha diaria
             datePicker.addEventListener('change', (e) => {
                 appState.date = e.target.value;
+                const newMonth = appState.date.substring(0, 7);
+                
+                // Si al cambiar de día cambia el mes, actualizamos también el selector de mes
+                if (newMonth !== selectedMonth) {
+                    selectedMonth = newMonth;
+                    monthPicker.value = selectedMonth;
+                }
                 loadDataForDate();
+            });
+
+            // Escuchar cambio manual de mes
+            monthPicker.addEventListener('change', (e) => {
+                selectedMonth = e.target.value;
+                loadMonthlyDataOnly();
             });
             
             loadDataForDate();
@@ -387,7 +421,7 @@
             if (!el) return;
             if (status === 'syncing') {
                 el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
-                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando Nube...';
+                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando...';
             } else if (status === 'saved') {
                 el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
                 el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Conectado a Google';
@@ -415,7 +449,6 @@
             isFetchingRemote = true;
             setCloudStatus('syncing');
             const localKey = `swiss_kam_checklist_${appState.date}`;
-            const currentMonth = appState.date.substring(0, 7);
             
             try {
                 // 1. Cargar datos del día seleccionado
@@ -432,12 +465,8 @@
                     }
                 }
 
-                // 2. Cargar datos consolidados de TODO el mes directamente desde Google Sheets
-                const monthRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${currentMonth}`);
-                if (monthRes.ok) {
-                    const mData = await monthRes.json();
-                    monthlyRemoteList = mData.monthlyData || [];
-                }
+                // 2. Cargar datos consolidados del mes seleccionado
+                await fetchMonthlyData();
 
                 setCloudStatus('saved');
             } catch (err) {
@@ -459,6 +488,28 @@
             updateCommissions();
         }
 
+        // Función específica para cambiar de mes manualmente sin cambiar de fecha diaria
+        async function loadMonthlyDataOnly() {
+            setCloudStatus('syncing');
+            try {
+                await fetchMonthlyData();
+                setCloudStatus('saved');
+            } catch(e) {
+                setCloudStatus('error');
+            }
+            renderMonthlySalesTable();
+            updateCommissions();
+        }
+
+        async function fetchMonthlyData() {
+            const monthRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${selectedMonth}`);
+            if (monthRes.ok) {
+                const mData = await monthRes.json();
+                monthlyRemoteList = mData.monthlyData || [];
+            }
+            document.getElementById('selectedMonthTitle').innerText = selectedMonth;
+        }
+
         async function saveData() {
             if (isFetchingRemote || !appState.date) return;
 
@@ -466,17 +517,19 @@
             const localKey = `swiss_kam_checklist_${appState.date}`;
             localStorage.setItem(localKey, JSON.stringify(appState));
 
-            // Actualizar lista mensual remota localmente mientras se envía
-            let updated = false;
-            for (let i = 0; i < monthlyRemoteList.length; i++) {
-                if (monthlyRemoteList[i].date === appState.date) {
-                    monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
-                    updated = true;
-                    break;
+            // Actualizar lista mensual remota localmente si la fecha pertenece al mes seleccionado
+            if (appState.date.indexOf(selectedMonth) === 0) {
+                let updated = false;
+                for (let i = 0; i < monthlyRemoteList.length; i++) {
+                    if (monthlyRemoteList[i].date === appState.date) {
+                        monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
+                        updated = true;
+                        break;
+                    }
                 }
-            }
-            if (!updated) {
-                monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
+                if (!updated) {
+                    monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
+                }
             }
 
             updateMetrics();
@@ -684,7 +737,7 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay ventas registradas para esta fecha. Registra una nueva arriba.
+                            No hay ventas registradas para esta fecha (${appState.date}). Registra una nueva arriba.
                         </td>
                     </tr>
                 `;
@@ -699,7 +752,7 @@
                         : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>';
 
                     row.innerHTML = `
-                        <td class="py-2.5 px-3 text-slate-400">${sale.date}</td>
+                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
                         <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
                         <td class="py-2.5 px-3">${badgeType}</td>
                         <td class="py-2.5 px-3 text-right font-bold text-emerald-400">$${sale.amount.toFixed(2)}</td>
@@ -728,7 +781,7 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
-                            Aún no hay ventas registradas en la nube para el mes seleccionado.
+                            Aún no hay ventas registradas en la nube para el mes de ${selectedMonth}.
                         </td>
                     </tr>
                 `;
@@ -751,7 +804,7 @@
                 });
             }
 
-            if (badge) badge.innerText = `$${monthlyData.amount.toFixed(2)} USD Acumulado Mes`;
+            if (badge) badge.innerText = `$${monthlyData.amount.toFixed(2)} USD (${selectedMonth})`;
         }
 
         function updateCommissions() {
@@ -782,7 +835,7 @@
 
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en el mes`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en ${selectedMonth}`;
 
             document.getElementById('activationBonusDisplay').innerHTML = `$${activationBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             
@@ -820,7 +873,7 @@
             const monthlyData = getMonthlyAggregates();
 
             let monthlySummaryData = [
-                ["MES EVALUADO", appState.date.substring(0, 7)],
+                ["MES EVALUADO", selectedMonth],
                 ["SISTEMA", "Swiss Hotelier KAM Executive Hub"],
                 [""],
                 ["MÉTRICA / INGRESO", "VALOR"],
@@ -835,7 +888,7 @@
                 ["TARIFA EFECTIVA POR HORA", document.getElementById('hourlyRateDisplay').innerText]
             ];
             let wsMonthly = XLSX.utils.aoa_to_sheet(monthlySummaryData);
-            XLSX.utils.book_append_sheet(wb, wsMonthly, "Resumen del Mes");
+            XLSX.utils.book_append_sheet(wb, wsMonthly, `Resumen ${selectedMonth}`);
 
             let salesMonthlyData = [["Fecha Registro", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
             if (monthlyData.salesList.length > 0) {
@@ -862,7 +915,7 @@
             let wsChecklist = XLSX.utils.aoa_to_sheet(checklistData);
             XLSX.utils.book_append_sheet(wb, wsChecklist, `Checklist (${appState.date})`);
 
-            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_Mensual_${appState.date.substring(0, 7)}.xlsx`);
+            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_Mensual_${selectedMonth}.xlsx`);
         }
 
         function generateReport() {
@@ -870,7 +923,7 @@
             const dateElem = document.getElementById('modalReportDate');
             const contentElem = document.getElementById('modalReportContent');
 
-            dateElem.innerText = `Evaluación Ejecutiva Mes: ${appState.date.substring(0, 7)}`;
+            dateElem.innerText = `Evaluación Ejecutiva Mes: ${selectedMonth}`;
 
             const monthlyData = getMonthlyAggregates();
 
@@ -895,7 +948,7 @@
                 </div>
 
                 <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Desglose Final de Salario Estimado</h4>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Desglose Final de Salario Estimado (${selectedMonth})</h4>
                     <div class="space-y-1.5 text-xs text-slate-300">
                         <div class="flex justify-between"><span>Base Fija + Internet:</span><span class="font-semibold text-white">$1,066.00 USD</span></div>
                         <div class="flex justify-between"><span>Hoteles Recurrentes (${globalSettings.recurrentHotels} @ $12):</span><span class="font-semibold text-white">$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD</span></div>
@@ -918,7 +971,7 @@
 
         function copyReportToClipboard(e) {
             const monthlyData = getMonthlyAggregates();
-            let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${appState.date.substring(0, 7)})\n`;
+            let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${selectedMonth})\n`;
             text += `--------------------------------------------------\n`;
             text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4)\n`;
             text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
