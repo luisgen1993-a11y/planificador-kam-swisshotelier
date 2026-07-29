@@ -44,6 +44,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
+        <!-- Tarjetas de Métricas Globales -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Score Diario Global</div>
@@ -86,6 +87,7 @@
             </div>
         </div>
 
+        <!-- Calculadora de Ingresos -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b border-slate-700 pb-3">
                 <div>
@@ -148,6 +150,7 @@
             </div>
         </div>
 
+        <!-- Registro de Ventas del Día -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
@@ -205,12 +208,14 @@
             </div>
         </div>
 
+        <!-- Bloques de Tareas -->
         <div id="blocksContainer" class="space-y-6">
             <!-- Dynamic Block Rendering via JS -->
         </div>
 
     </main>
 
+    <!-- Modal de Informe -->
     <div id="reportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
@@ -244,6 +249,7 @@
     </div>
 
     <script>
+        // URL de tu Google Apps Script
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmxmx6Sp9Jjjv8YGuWwesYhGFTv4DbTIWURsyUzt4ETW71XkCW7dUpAsNG7NKqANXf/exec';
 
         const blocksData = [
@@ -270,7 +276,7 @@
                 weight: 35,
                 tasks: [
                     { id: 't2_1', text: 'Agregar 10 hoteles nuevos al CRM (buscar contactos por medio de Apollo o mandar correo de "Abrecaminos")', pts: 20 },
-                    { id: 't2_2', text: 'Buscar y agregar 10 a 20 prospectos nuevos a la base de datos en Excel', pts: 15 },
+                    { id: 't2_2', text: 'Buscar y Agregar 10 a 20 prospectos nuevos a la base de datos en Excel', pts: 15 },
                     { id: 't2_3', text: 'Completar todas las tareas del CRM relacionadas con prospección y seguimiento', pts: 20 },
                     { id: 't2_4', text: 'Envío de propuestas comerciales y acuerdos de inicio', pts: 20 },
                     { id: 't2_5', text: 'Ejecutar 1 a 2 reuniones de demostración del software', pts: 25 }
@@ -336,6 +342,8 @@
             recurrentHotels: 50
         };
 
+        let isFetchingRemote = false;
+
         document.addEventListener('DOMContentLoaded', () => {
             loadGlobalSettings();
             const datePicker = document.getElementById('datePicker');
@@ -348,42 +356,25 @@
             loadDataForDate();
         });
 
-        async function syncToGoogleSheets(data) {
-            const cloudStatus = document.getElementById('cloudStatus');
-            if (!SCRIPT_URL) return;
-
-            try {
-                if (cloudStatus) {
-                    cloudStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Sincronizando...';
-                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/30';
-                }
-
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (cloudStatus) {
-                    cloudStatus.innerHTML = '<i class="fa-solid fa-cloud-check text-emerald-400 mr-1"></i>Conectado a Google';
-                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300';
-                }
-            } catch (err) {
-                console.error("Error al sincronizar con Google Apps Script:", err);
-                if (cloudStatus) {
-                    cloudStatus.innerHTML = '<i class="fa-solid fa-cloud-xmark text-rose-400 mr-1"></i>Error Sincro';
-                    cloudStatus.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-500/30';
-                }
+        function setCloudStatus(status) {
+            const el = document.getElementById('cloudStatus');
+            if (!el) return;
+            if (status === 'syncing') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                el.innerHTML = '<i class="fa-solid fa-rotate text-xs animate-spin mr-1"></i>Sincronizando...';
+            } else if (status === 'saved') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Conectado a Google';
+            } else if (status === 'error') {
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-xs mr-1"></i>Error Sincro (Local)';
             }
         }
 
         function loadGlobalSettings() {
             const saved = localStorage.getItem('swiss_kam_global_settings');
             if (saved) {
-                try {
-                    globalSettings = JSON.parse(saved);
-                } catch(e) { console.error(e); }
+                try { globalSettings = JSON.parse(saved); } catch(e) {}
             }
             document.getElementById('recurrentHotelsInput').value = globalSettings.recurrentHotels || 50;
         }
@@ -394,38 +385,73 @@
             updateCommissions();
         }
 
-        function getStorageKey(dateStr) {
-            return `swiss_kam_checklist_${dateStr || appState.date}`;
-        }
-
-        function saveData() {
-            localStorage.setItem(getStorageKey(), JSON.stringify(appState));
-            updateMetrics();
-            updateCommissions();
-            syncToGoogleSheets(appState);
-        }
-
-        function loadDataForDate() {
-            const saved = localStorage.getItem(getStorageKey());
-            if (saved) {
-                try {
-                    appState = JSON.parse(saved);
-                } catch(e) {
-                    appState = { date: appState.date, completedTasks: {}, salesList: [] };
-                }
-            } else {
-                appState = {
-                    date: appState.date,
-                    completedTasks: {},
-                    salesList: []
-                };
-            }
-            if (!appState.salesList) appState.salesList = [];
+        // Cargar datos desde Apps Script con salvaguarda de estado
+        async function loadDataForDate() {
+            isFetchingRemote = true;
+            setCloudStatus('syncing');
+            const localKey = `swiss_kam_checklist_${appState.date}`;
             
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && (data.completedTasks || data.salesList)) {
+                        appState.completedTasks = data.completedTasks || {};
+                        appState.salesList = data.salesList || [];
+                        localStorage.setItem(localKey, JSON.stringify(appState));
+                    } else {
+                        const savedLocal = localStorage.getItem(localKey);
+                        appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
+                    }
+                } else {
+                    throw new Error('Sin respuesta limpia del servidor');
+                }
+                setCloudStatus('saved');
+            } catch (err) {
+                console.warn('Utilizando cache local:', err);
+                const savedLocal = localStorage.getItem(localKey);
+                appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
+                setCloudStatus('error');
+            } finally {
+                isFetchingRemote = false;
+            }
+
+            if (!appState.completedTasks) appState.completedTasks = {};
+            if (!appState.salesList) appState.salesList = [];
+
             renderBlocks();
             renderSales();
             updateMetrics();
             updateCommissions();
+        }
+
+        // Guardar datos protegiendo contra objetos vacíos accidentales
+        async function saveData() {
+            if (isFetchingRemote || !appState.date) return;
+
+            setCloudStatus('syncing');
+            const localKey = `swiss_kam_checklist_${appState.date}`;
+            localStorage.setItem(localKey, JSON.stringify(appState));
+
+            updateMetrics();
+            updateCommissions();
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'saveData',
+                        date: appState.date,
+                        payload: appState
+                    })
+                });
+                setCloudStatus('saved');
+            } catch (err) {
+                console.error('Error al guardar en Google Sheets:', err);
+                setCloudStatus('error');
+            }
         }
 
         function getMonthlyAggregates() {
@@ -464,7 +490,7 @@
             let total = 0;
             block.tasks.forEach(task => {
                 total += task.pts;
-                if (appState.completedTasks[task.id]) {
+                if (appState.completedTasks && appState.completedTasks[task.id]) {
                     earned += task.pts;
                 }
             });
@@ -472,9 +498,11 @@
         }
 
         function toggleTask(taskId) {
+            if (!appState.completedTasks) appState.completedTasks = {};
             appState.completedTasks[taskId] = !appState.completedTasks[taskId];
-            saveData();
+            
             renderBlocks();
+            saveData();
         }
 
         function updateMetrics() {
@@ -493,7 +521,7 @@
 
                 block.tasks.forEach(task => {
                     totalTasksCount++;
-                    if (appState.completedTasks[task.id]) {
+                    if (appState.completedTasks && appState.completedTasks[task.id]) {
                         completedTasksCount++;
                     }
                 });
@@ -541,14 +569,14 @@
 
                 let tasksHtml = '';
                 block.tasks.forEach(task => {
-                    const isChecked = !!appState.completedTasks[task.id];
+                    const isChecked = !!(appState.completedTasks && appState.completedTasks[task.id]);
                     tasksHtml += `
                         <label class="flex items-start space-x-3 p-3 bg-slate-900/60 hover:bg-slate-900/90 rounded-lg cursor-pointer transition border border-slate-700/50 group">
                             <input type="checkbox" onchange="toggleTask('${task.id}')" ${isChecked ? 'checked' : ''} class="mt-1 h-4 w-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 focus:ring-offset-slate-900 cursor-pointer">
                             <div class="flex-1">
                                 <span class="text-sm text-slate-200 group-hover:text-white transition ${isChecked ? 'line-through text-slate-500' : ''}">${task.text}</span>
                             </div>
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap">${task.pts} pts</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${task.pts} pts</span>
                         </label>
                     `;
                 });
@@ -565,11 +593,8 @@
                             </div>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <div class="text-right">
-                                <div class="text-sm font-extrabold text-emerald-400">${score}%</div>
-                                <div class="text-[10px] text-slate-400">Avance</div>
-                            </div>
-                            <div class="w-16 bg-slate-700 h-2 rounded-full overflow-hidden">
+                            <span class="text-sm font-extrabold text-emerald-400">${score}%</span>
+                            <div class="w-20 bg-slate-700 h-2 rounded-full overflow-hidden">
                                 <div class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: ${score}%"></div>
                             </div>
                         </div>
@@ -578,7 +603,6 @@
                         ${tasksHtml}
                     </div>
                 `;
-
                 container.appendChild(blockCard);
             });
         }
@@ -589,338 +613,247 @@
             const amountInput = document.getElementById('saleAmount');
             const typeInput = document.getElementById('saleType');
 
-            const client = clientInput.value.trim();
-            const amount = parseFloat(amountInput.value) || 0;
-            const type = typeInput.value;
-
-            if (!client || amount <= 0) return;
-
             const newSale = {
                 id: 'sale_' + Date.now(),
-                client: client,
-                amount: amount,
-                type: type,
+                client: clientInput.value.trim(),
+                amount: parseFloat(amountInput.value),
+                type: typeInput.value,
                 date: appState.date
             };
 
+            if (!appState.salesList) appState.salesList = [];
             appState.salesList.push(newSale);
 
             clientInput.value = '';
             amountInput.value = '';
 
-            saveData();
             renderSales();
+            saveData();
         }
 
         function deleteSale(saleId) {
-            const saleIndex = appState.salesList.findIndex(s => s.id === saleId);
-            if (saleIndex > -1) {
-                appState.salesList.splice(saleIndex, 1);
-                saveData();
-                renderSales();
-            }
+            if (!appState.salesList) return;
+            appState.salesList = appState.salesList.filter(s => s.id !== saleId);
+            renderSales();
+            saveData();
         }
 
         function renderSales() {
             const tbody = document.getElementById('salesTableBody');
+            const badge = document.getElementById('salesSummaryBadge');
+            if (!tbody) return;
+
             tbody.innerHTML = '';
+            let dayTotal = 0;
 
             if (!appState.salesList || appState.salesList.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="py-6 text-center text-slate-500 text-xs">
-                            No hay ventas registradas para este día. Registra tu primera venta arriba.
+                        <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
+                            No hay ventas registradas para esta fecha. Registra una nueva arriba.
                         </td>
                     </tr>
                 `;
-                document.getElementById('salesSummaryBadge').innerText = '$0.00 USD Hoy';
-                return;
+            } else {
+                appState.salesList.forEach(sale => {
+                    dayTotal += sale.amount;
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-800/50 transition text-xs';
+                    
+                    const badgeType = sale.type === 'activation' 
+                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">Activación</span>'
+                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>';
+
+                    row.innerHTML = `
+                        <td class="py-2.5 px-3 text-slate-400">${sale.date}</td>
+                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
+                        <td class="py-2.5 px-3">${badgeType}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                        <td class="py-2.5 px-3 text-center">
+                            <button onclick="deleteSale('${sale.id}')" class="text-slate-500 hover:text-rose-400 transition">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
             }
 
-            let totalDailySales = 0;
-
-            appState.salesList.forEach(sale => {
-                totalDailySales += sale.amount;
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-700/30 transition';
-
-                const isActivation = sale.type === 'activation';
-                const typeTag = isActivation 
-                    ? '<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[11px] font-bold border border-purple-500/30"><i class="fa-solid fa-rocket mr-1"></i>Activación</span>'
-                    : '<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[11px] font-bold border border-blue-500/30"><i class="fa-solid fa-arrow-up-right-dots mr-1"></i>Upsell</span>';
-
-                tr.innerHTML = `
-                    <td class="py-2.5 px-3 text-slate-400 text-xs">${sale.date}</td>
-                    <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
-                    <td class="py-2.5 px-3">${typeTag}</td>
-                    <td class="py-2.5 px-3 text-right font-bold text-amber-400">$${sale.amount.toFixed(2)} USD</td>
-                    <td class="py-2.5 px-3 text-center">
-                        <button onclick="deleteSale('${sale.id}')" class="text-slate-500 hover:text-rose-400 transition p-1" title="Eliminar registro">
-                            <i class="fa-solid fa-trash-can text-xs"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('salesSummaryBadge').innerText = `$${totalDailySales.toFixed(2)} USD Hoy`;
+            if (badge) badge.innerText = `$${dayTotal.toFixed(2)} USD Hoy`;
         }
 
         function updateCommissions() {
+            const baseFixed = 1066.00;
             const recurrentHotels = globalSettings.recurrentHotels || 50;
-
-            const baseIncome = 1066;
-            const recurrenceIncome = recurrentHotels * 12;
+            const recurrentIncome = recurrentHotels * 12.00;
 
             const monthlyData = getMonthlyAggregates();
             const oneTimeIncome = monthlyData.amount;
-            const monthlyActivations = monthlyData.activations;
+            const activationCount = monthlyData.activations;
+            const activationBonus = activationCount >= 4 ? 200.00 : 0.00;
 
-            const bonusIncome = monthlyActivations >= 4 ? 200 : 0;
+            const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + activationBonus;
+            const effectiveHourlyRate = totalMonthlyEst / 160.0;
 
-            const totalMonthly = baseIncome + recurrenceIncome + oneTimeIncome + bonusIncome;
-            const hourlyRate = (totalMonthly * 12) / 2000;
+            document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
+            document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en el mes`;
+
+            document.getElementById('activationBonusDisplay').innerHTML = `$${activationBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('activationsCount').innerText = activationCount;
+            
+            const bonusNote = document.getElementById('activationBonusNote');
+            if (activationCount >= 4) {
+                bonusNote.innerText = '¡Bono alcanzado! (≥4 activaciones)';
+                bonusNote.className = 'text-[10px] text-emerald-400 font-semibold';
+            } else {
+                bonusNote.innerText = `Faltan ${4 - activationCount} para el bono de $200`;
+                bonusNote.className = 'text-[10px] text-slate-500';
+            }
+
+            document.getElementById('totalMonthlyIncomeDisplay').innerHTML = `$${totalMonthlyEst.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('hourlyRateDisplay').innerText = `$${effectiveHourlyRate.toFixed(2)} / hr`;
+
             const targetMonthly = 4583.33;
-            const targetPercent = Math.min(100, Math.round((totalMonthly / targetMonthly) * 100));
-
-            document.getElementById('activationsCount').innerText = monthlyActivations;
-            document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrenceIncome.toFixed(2)} USD`;
-            document.getElementById('oneTimeIncomeDisplay').innerText = `$${oneTimeIncome.toFixed(2)} USD`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} venta(s) este mes`;
-            
-            document.getElementById('activationBonusDisplay').innerText = `$${bonusIncome.toFixed(2)} USD`;
-            document.getElementById('activationBonusNote').innerText = monthlyActivations >= 4 ? '¡Bono alcanzado!' : `${monthlyActivations}/4 activaciones`;
-            
-            document.getElementById('totalMonthlyIncomeDisplay').innerText = `$${totalMonthly.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
-            document.getElementById('hourlyRateDisplay').innerText = `$${hourlyRate.toFixed(2)} / hr`;
-            document.getElementById('targetPercentDisplay').innerText = `${targetPercent}%`;
-            document.getElementById('targetProgressBar').style.width = `${targetPercent}%`;
+            const targetPct = Math.min(Math.round((totalMonthlyEst / targetMonthly) * 100), 100);
+            document.getElementById('targetPercentDisplay').innerText = `${targetPct}%`;
+            document.getElementById('targetProgressBar').style.width = `${targetPct}%`;
         }
 
         function resetDay() {
-            appState.completedTasks = {};
-            appState.salesList = [];
-            saveData();
-            renderBlocks();
-            renderSales();
+            if (confirm(`¿Estás seguro de reiniciar el registro y tareas del día ${appState.date}?`)) {
+                appState.completedTasks = {};
+                appState.salesList = [];
+                saveData();
+                renderBlocks();
+                renderSales();
+            }
         }
 
         function downloadExcel() {
-            const wb = XLSX.utils.book_new();
+            let wb = XLSX.utils.book_new();
 
-            const mainSheetData = [
-                ["Bloque", "Horario", "Impacto / Criterio", "Tarea / Acción Clave", "Puntos Max", "Completado (1 o 0)", "Puntos Ganados"]
+            // Hoja 1: Resumen Diario
+            let summaryData = [
+                ["FECHA", appState.date],
+                ["SISTEMA", "Swiss Hotelier KAM Daily Planner"],
+                [""],
+                ["MÉTRICA", "VALOR"],
+                ["Tareas Completadas", document.getElementById('tasksRatio').innerText],
+                ["Score Diario Global", document.getElementById('overallScore').innerText],
+                ["Score Bloque de Oro", document.getElementById('goldBlockScore').innerText],
+                ["Ventas Totales Hoy", document.getElementById('salesSummaryBadge').innerText]
             ];
+            let wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Diario");
 
-            let rowIdx = 2;
-            const blockRowRanges = [];
-
-            blocksData.forEach(block => {
-                const startRow = rowIdx;
-                block.tasks.forEach(task => {
-                    const isDone = appState.completedTasks[task.id] ? 1 : 0;
-                    mainSheetData.push([
-                        block.title,
-                        block.time,
-                        block.badge,
-                        task.text,
-                        task.pts,
-                        isDone,
-                        { f: `IF(F${rowIdx}=1, E${rowIdx}, 0)` }
+            // Hoja 2: Checklist
+            let checklistData = [["Bloque", "Tarea", "Puntos", "Estado"]];
+            blocksData.forEach(b => {
+                b.tasks.forEach(t => {
+                    checklistData.push([
+                        b.title,
+                        t.text,
+                        t.pts,
+                        (appState.completedTasks && appState.completedTasks[t.id]) ? "COMPLETADO" : "PENDIENTE"
                     ]);
-                    rowIdx++;
                 });
-                const endRow = rowIdx - 1;
-                blockRowRanges.push({ title: block.title, weight: block.weight / 100, startRow, endRow });
             });
+            let wsChecklist = XLSX.utils.aoa_to_sheet(checklistData);
+            XLSX.utils.book_append_sheet(wb, wsChecklist, "Checklist Detallado");
 
-            mainSheetData.push([]);
-            mainSheetData.push(["RESUMEN DE PONDERACIÓN Y SCORE DIARIO"]);
-            mainSheetData.push(["Bloque de Trabajo", "Peso (%)", "Estado Cumplimiento (%)"]);
-            
-            const summaryStartRow = mainSheetData.length + 1;
-            
-            blockRowRanges.forEach(b => {
-                mainSheetData.push([
-                    b.title,
-                    b.weight,
-                    { f: `SUM(G${b.startRow}:G${b.endRow})/SUM(E${b.startRow}:E${b.endRow})` }
-                ]);
-            });
-
-            const summaryEndRow = mainSheetData.length;
-            
-            mainSheetData.push([]);
-            mainSheetData.push(["SCORE GLOBAL PONDERADO", "", { f: `SUMPRODUCT(B${summaryStartRow}:B${summaryEndRow}, C${summaryStartRow}:C${summaryEndRow})` }]);
-
-            const wsMain = XLSX.utils.aoa_to_sheet(mainSheetData);
-            wsMain['!cols'] = [
-                { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 65 }, { wch: 12 }, { wch: 18 }, { wch: 15 }
-            ];
-
-            const salesSheetData = [
-                ["ID Registro", "Fecha", "Cliente / Hotel", "Tipo de Venta", "Monto (USD)"]
-            ];
-
-            const currentYearMonth = appState.date.substring(0, 7);
-            let monthlySalesArray = [];
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('swiss_kam_checklist_' + currentYearMonth)) {
-                    try {
-                        const dayData = JSON.parse(localStorage.getItem(key));
-                        if (dayData && dayData.salesList) {
-                            monthlySalesArray = monthlySalesArray.concat(dayData.salesList);
-                        }
-                    } catch(e) {}
-                }
+            // Hoja 3: Ventas del Día
+            let salesData = [["Fecha", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
+            if (appState.salesList && appState.salesList.length > 0) {
+                appState.salesList.forEach(s => {
+                    salesData.push([s.date, s.client, s.type, s.amount]);
+                });
+            } else {
+                salesData.push([appState.date, "Sin ventas registradas", "-", 0]);
             }
+            let wsSales = XLSX.utils.aoa_to_sheet(salesData);
+            XLSX.utils.book_append_sheet(wb, wsSales, "Ventas de Hoy");
 
-            monthlySalesArray.forEach(sale => {
-                salesSheetData.push([
-                    sale.id,
-                    sale.date,
-                    sale.client,
-                    sale.type === 'activation' ? 'Activación (Setup)' : 'Upsell / Módulo Extra',
-                    sale.amount
-                ]);
-            });
-
-            salesSheetData.push([]);
-            salesSheetData.push(["TOTAL VENTAS ONE-TIME DEL MES", "", "", "", { f: `SUM(E2:E${Math.max(2, salesSheetData.length - 1)})` }]);
-
-            const wsSales = XLSX.utils.aoa_to_sheet(salesSheetData);
-            wsSales['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 }];
-
-            XLSX.utils.book_append_sheet(wb, wsMain, "Dashboard_Diario");
-            XLSX.utils.book_append_sheet(wb, wsSales, "Registro_Ventas_Mes");
-
-            const recurrentHotels = globalSettings.recurrentHotels || 50;
-            const monthlyData = getMonthlyAggregates();
-
-            const commissionsSheetData = [
-                ["CONCEPTO DE INGRESO", "CANTIDAD / VALOR", "TASA / MONTO", "SUBTOTAL MENSUAL (USD)"],
-                ["Salario Base Mensual", 1, 1016, 1016],
-                ["Subsidio de Internet", 1, 50, 50],
-                ["Comisión Recurrencia ($12/hotel)", recurrentHotels, 12, recurrentHotels * 12],
-                ["Ventas y Upsells (One-Time Payments)", monthlyData.count, "Variable", monthlyData.amount],
-                ["Bono por 4 Activaciones Mensuales", monthlyData.activations >= 4 ? 1 : 0, 200, monthlyData.activations >= 4 ? 200 : 0],
-                [],
-                ["TOTAL ESTIMADO MES (USD)", "", "", { f: "SUM(D2:D6)" }],
-                ["TARIFA POR HORA EQUIVALENTE", "", "", { f: "(D8*12)/2000" }],
-                ["META TARIFA OBJETIVO", "", "", 27.50],
-                ["CUMPLIMIENTO DE META (%)", "", "", { f: "D9/D10" }]
-            ];
-
-            const wsCommissions = XLSX.utils.aoa_to_sheet(commissionsSheetData);
-            wsCommissions['!cols'] = [{ wch: 35 }, { wch: 18 }, { wch: 18 }, { wch: 25 }];
-            XLSX.utils.book_append_sheet(wb, wsCommissions, "Calculo_Comisiones");
-
-            const fileName = `Planificador_KAM_SwissHotelier_${appState.date}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_${appState.date}.xlsx`);
         }
 
         function generateReport() {
-            const dateStr = document.getElementById('datePicker').value;
-            document.getElementById('modalReportDate').innerText = `Fecha: ${dateStr}`;
+            const modal = document.getElementById('reportModal');
+            const dateElem = document.getElementById('modalReportDate');
+            const contentElem = document.getElementById('modalReportContent');
 
-            let weightedScoreSum = 0;
-            let blockSummaries = '';
+            dateElem.innerText = `Fecha de evaluación: ${appState.date}`;
 
-            blocksData.forEach(block => {
-                const bScore = calculateBlockScore(block);
-                weightedScoreSum += (bScore * (block.weight / 100));
-
-                let icon = bScore >= 80 ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' :
-                           bScore >= 50 ? '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i>' :
-                                          '<i class="fa-solid fa-circle-xmark text-rose-400"></i>';
-
-                blockSummaries += `
-                    <div class="flex items-center justify-between p-3 bg-slate-900/60 rounded-lg border border-slate-700/50">
-                        <div class="flex items-center space-x-3">
-                            ${icon}
-                            <div>
-                                <div class="text-sm font-semibold text-slate-200">${block.title}</div>
-                                <div class="text-xs text-slate-400">${block.time}</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-sm font-bold text-white">${bScore}%</span>
-                            <span class="text-xs text-slate-500 block">Peso: ${block.weight}%</span>
-                        </div>
-                    </div>
-                `;
+            let completedTasksCount = 0;
+            let totalTasksCount = 0;
+            blocksData.forEach(b => {
+                b.tasks.forEach(t => {
+                    totalTasksCount++;
+                    if (appState.completedTasks && appState.completedTasks[t.id]) completedTasksCount++;
+                });
             });
 
-            const overallScore = Math.round(weightedScoreSum);
-            const monthlyData = getMonthlyAggregates();
-            
-            let diagnosticText = '';
-            if (overallScore >= 90) {
-                diagnosticText = '<strong>Diagnóstico:</strong> Excelente ejecución. Estás operando al ritmo requerido para asegurar la tasa de $27.50 USD/hora.';
-            } else if (overallScore >= 75) {
-                diagnosticText = '<strong>Diagnóstico:</strong> Buen desempeño comercial. Cumpliste con la mayoría de las actividades de alto impacto.';
-            } else {
-                diagnosticText = '<strong>Diagnóstico:</strong> Jornada con desviaciones. Se requiere mayor disciplina en el Bloque de Oro y onboarding.';
-            }
+            const daySales = appState.salesList || [];
+            const daySalesTotal = daySales.reduce((acc, curr) => acc + curr.amount, 0);
 
-            const htmlContent = `
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
-                    <span class="text-xs uppercase text-slate-400 font-semibold tracking-wider">Score Global de Rendimiento</span>
-                    <div class="text-4xl font-extrabold text-emerald-400 my-1">${overallScore}%</div>
-                    <p class="text-xs text-slate-300 mt-2">${diagnosticText}</p>
+            contentElem.innerHTML = `
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                        <span class="block text-[11px] text-slate-400 uppercase">Score Global</span>
+                        <span class="text-2xl font-black text-emerald-400">${document.getElementById('overallScore').innerText}</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                        <span class="block text-[11px] text-slate-400 uppercase">Avance Tareas</span>
+                        <span class="text-2xl font-black text-blue-400">${completedTasksCount}/${totalTasksCount}</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 col-span-2 sm:col-span-1">
+                        <span class="block text-[11px] text-slate-400 uppercase">Ventas Hoy</span>
+                        <span class="text-2xl font-black text-amber-400">$${daySalesTotal.toFixed(2)}</span>
+                    </div>
                 </div>
 
                 <div>
-                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Desglose por Bloques de Tiempo</h4>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Desglose por Bloques de Trabajo</h4>
                     <div class="space-y-2">
-                        ${blockSummaries}
-                    </div>
-                </div>
-
-                <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700/50">
-                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avance de Metas Clave del Mes</h4>
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="text-slate-300">Hoteles activados este mes:</span>
-                        <span class="font-bold text-purple-400">${monthlyData.activations} / 4 Meta</span>
+                        ${blocksData.map(b => {
+                            const sc = calculateBlockScore(b);
+                            return `
+                                <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50 text-xs">
+                                    <span class="text-slate-200 font-medium">${b.title}</span>
+                                    <span class="font-bold text-emerald-400">${sc}%</span>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `;
 
-            document.getElementById('modalReportContent').innerHTML = htmlContent;
-            document.getElementById('reportModal').classList.remove('hidden');
+            modal.classList.remove('hidden');
         }
 
         function closeReport() {
             document.getElementById('reportModal').classList.add('hidden');
         }
 
-        function copyReportToClipboard(event) {
-            let weightedScoreSum = 0;
-            let textReport = `--- INFORME DE RENDIMIENTO SWISS HOTELIER ---\nFecha: ${appState.date}\n\n`;
-
-            blocksData.forEach(block => {
-                const bScore = calculateBlockScore(block);
-                weightedScoreSum += (bScore * (block.weight / 100));
-                textReport += `• ${block.title}: ${bScore}%\n`;
+        function copyReportToClipboard(e) {
+            let text = `📊 Swiss Hotelier - Resumen Ejecutivo (${appState.date})\n`;
+            text += `--------------------------------------------------\n`;
+            text += `• Score Global: ${document.getElementById('overallScore').innerText}\n`;
+            text += `• Tareas Completadas: ${document.getElementById('tasksRatio').innerText}\n`;
+            text += `• Bloque de Oro (Ventas): ${document.getElementById('goldBlockScore').innerText}\n`;
+            text += `• Ventas Registradas Hoy: ${document.getElementById('salesSummaryBadge').innerText}\n\n`;
+            text += `Avance por Bloques:\n`;
+            
+            blocksData.forEach(b => {
+                text += `- ${b.title}: ${calculateBlockScore(b)}%\n`;
             });
 
-            const overallScore = Math.round(weightedScoreSum);
-            const monthlyData = getMonthlyAggregates();
-            textReport += `\nSCORE GLOBAL: ${overallScore}%\nActivaciones Mes: ${monthlyData.activations}/4\n--------------------------------------------`;
-
-            const tempInput = document.createElement('textarea');
-            tempInput.value = textReport;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-
-            const btn = event.currentTarget;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
-            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = e.target.closest('button');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
+                setTimeout(() => btn.innerHTML = orig, 2000);
+            });
         }
     </script>
 </body>
