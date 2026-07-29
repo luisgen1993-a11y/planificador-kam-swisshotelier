@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swiss Hotelier - Daily Execution Checklist & Excel Generator</title>
+    <title>Swiss Hotelier - Daily Execution Checklist & Monthly Income Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -44,7 +44,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
-        <!-- Tarjetas de Métricas Globales -->
+        <!-- Tarjetas de Métricas Globales (Día + Mes) -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Score Diario Global</div>
@@ -63,38 +63,36 @@
                     <span id="tasksRatio" class="text-3xl font-extrabold text-blue-400">0/17</span>
                     <i class="fa-solid fa-list-check text-slate-600 text-xl"></i>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Acciones ejecutadas en esta fecha</p>
-            </div>
-
-            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
-                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Bloque de Oro (Ventas)</div>
-                <div class="flex items-baseline justify-between">
-                    <span id="goldBlockScore" class="text-3xl font-extrabold text-amber-400">0%</span>
-                    <i class="fa-solid fa-fire text-amber-500/40 text-xl"></i>
-                </div>
-                <p class="text-xs text-slate-400 mt-2">09:00 AM - 11:30 AM (Prospección)</p>
+                <p class="text-xs text-slate-400 mt-2">Acciones ejecutadas hoy</p>
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Activaciones del Mes</div>
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <span id="activationsCount" class="text-3xl font-extrabold text-purple-400">0</span>
-                    </div>
+                <div class="flex items-baseline justify-between">
+                    <span id="activationsCount" class="text-3xl font-extrabold text-purple-400">0</span>
                     <span class="text-xs font-bold text-slate-400">/ 4 Meta</span>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Bono $200 (Acumulado Mes)</p>
+                <p id="activationsProgressNote" class="text-xs text-purple-300/80 mt-2">Bono $200 (Pendiente)</p>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Upsells del Mes</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="upsellsCount" class="text-3xl font-extrabold text-amber-400">0</span>
+                    <i class="fa-solid fa-bolt text-amber-500/40 text-xl"></i>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Módulos extras vendidos</p>
             </div>
         </div>
 
-        <!-- Calculadora de Ingresos -->
+        <!-- Calculadora Resumen del Mes -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-calculator text-emerald-400"></i> Calculadora de Ingresos & Ritmo $27.50/hr
+                        <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección de Ingresos ($27.50/hr)
                     </h2>
-                    <p class="text-xs text-slate-400">Proyección mensual acumulada de Salario Base, Bonos y Comisiones</p>
+                    <p class="text-xs text-slate-400">Cálculo consolidado del mes seleccionado basado en Salario Base, Recurrentes y Ventas Registradas</p>
                 </div>
                 <div class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-right">
                     <div class="text-xs text-slate-400">Tarifa Efectiva Mensual</div>
@@ -119,7 +117,7 @@
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Ventas Mes (One-Time)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Comisiones Mes (One-Time)</label>
                     <div id="oneTimeIncomeDisplay" class="text-lg font-bold text-amber-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
                     <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 ventas en el mes</span>
                 </div>
@@ -133,7 +131,7 @@
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
                     <label class="block text-xs text-slate-400 mb-1">Total Ingresos Est. Mes</label>
                     <div id="totalMonthlyIncomeDisplay" class="text-lg font-black text-emerald-400">$1,666.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
-                    <span class="text-[10px] text-slate-400">Suma total acumulada del mes</span>
+                    <span class="text-[10px] text-slate-400">Suma total acumulada</span>
                 </div>
             </div>
 
@@ -157,7 +155,7 @@
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
                         <i class="fa-solid fa-receipt text-amber-400"></i> Registro de Ventas & Upsells del Día
                     </h2>
-                    <p class="text-xs text-slate-400">Registra cada venta de la fecha seleccionada para sumarla a tus comisiones mensuales</p>
+                    <p class="text-xs text-slate-400">Añade ventas del día actual para registrarlas en la hoja y sumarlas al consolidado mensual</p>
                 </div>
                 <span id="salesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
                     $0.00 USD Hoy
@@ -208,7 +206,38 @@
             </div>
         </div>
 
-        <!-- Bloques de Tareas -->
+        <!-- NUEVA SECCIÓN: Tabla Centralizada de Ventas del Mes -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Consolidadas del Mes
+                    </h2>
+                    <p class="text-xs text-slate-400">Histórico completo de todos los cierres y upsells del mes seleccionado</p>
+                </div>
+                <span id="monthlySalesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                    $0.00 USD Acumulado
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
+                            <th class="py-2.5 px-3">Fecha de Registro</th>
+                            <th class="py-2.5 px-3">Cliente / Hotel</th>
+                            <th class="py-2.5 px-3">Tipo</th>
+                            <th class="py-2.5 px-3 text-right">Monto (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlySalesTableBody" class="divide-y divide-slate-700/50">
+                        <!-- Rendered via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bloques de Tareas Diarias -->
         <div id="blocksContainer" class="space-y-6">
             <!-- Dynamic Block Rendering via JS -->
         </div>
@@ -224,7 +253,7 @@
                         <i class="fa-solid fa-chart-line text-xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-lg font-bold text-white">Informe de Rendimiento Diario</h2>
+                        <h2 class="text-lg font-bold text-white">Informe Ejecutivo de Rendimiento</h2>
                         <p id="modalReportDate" class="text-xs text-slate-400"></p>
                     </div>
                 </div>
@@ -249,7 +278,6 @@
     </div>
 
     <script>
-        // URL de tu Google Apps Script
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmxmx6Sp9Jjjv8YGuWwesYhGFTv4DbTIWURsyUzt4ETW71XkCW7dUpAsNG7NKqANXf/exec';
 
         const blocksData = [
@@ -338,10 +366,7 @@
             salesList: []
         };
 
-        let globalSettings = {
-            recurrentHotels: 50
-        };
-
+        let globalSettings = { recurrentHotels: 50 };
         let isFetchingRemote = false;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -385,7 +410,6 @@
             updateCommissions();
         }
 
-        // Cargar datos desde Apps Script con salvaguarda de estado
         async function loadDataForDate() {
             isFetchingRemote = true;
             setCloudStatus('syncing');
@@ -404,7 +428,7 @@
                         appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
                     }
                 } else {
-                    throw new Error('Sin respuesta limpia del servidor');
+                    throw new Error('Sin respuesta del servidor');
                 }
                 setCloudStatus('saved');
             } catch (err) {
@@ -421,11 +445,11 @@
 
             renderBlocks();
             renderSales();
+            renderMonthlySalesTable();
             updateMetrics();
             updateCommissions();
         }
 
-        // Guardar datos protegiendo contra objetos vacíos accidentales
         async function saveData() {
             if (isFetchingRemote || !appState.date) return;
 
@@ -435,6 +459,7 @@
 
             updateMetrics();
             updateCommissions();
+            renderMonthlySalesTable();
 
             try {
                 await fetch(SCRIPT_URL, {
@@ -449,7 +474,7 @@
                 });
                 setCloudStatus('saved');
             } catch (err) {
-                console.error('Error al guardar en Google Sheets:', err);
+                console.error('Error al guardar:', err);
                 setCloudStatus('error');
             }
         }
@@ -459,6 +484,8 @@
             let totalMonthlySalesAmount = 0;
             let totalMonthlySalesCount = 0;
             let totalMonthlyActivations = 0;
+            let totalMonthlyUpsells = 0;
+            let allMonthlySalesList = [];
 
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -471,17 +498,24 @@
                                 totalMonthlySalesCount++;
                                 if (sale.type === 'activation') {
                                     totalMonthlyActivations++;
+                                } else if (sale.type === 'upsell') {
+                                    totalMonthlyUpsells++;
                                 }
+                                allMonthlySalesList.push(sale);
                             });
                         }
                     } catch(e) {}
                 }
             }
 
+            allMonthlySalesList.sort((a, b) => a.date.localeCompare(b.date));
+
             return {
                 amount: totalMonthlySalesAmount,
                 count: totalMonthlySalesCount,
-                activations: totalMonthlyActivations
+                activations: totalMonthlyActivations,
+                upsells: totalMonthlyUpsells,
+                salesList: allMonthlySalesList
             };
         }
 
@@ -500,7 +534,6 @@
         function toggleTask(taskId) {
             if (!appState.completedTasks) appState.completedTasks = {};
             appState.completedTasks[taskId] = !appState.completedTasks[taskId];
-            
             renderBlocks();
             saveData();
         }
@@ -509,15 +542,10 @@
             let totalTasksCount = 0;
             let completedTasksCount = 0;
             let weightedScoreSum = 0;
-            let goldBlockScoreVal = 0;
 
             blocksData.forEach(block => {
                 const bScore = calculateBlockScore(block);
                 weightedScoreSum += (bScore * (block.weight / 100));
-                
-                if (block.id === 'block2') {
-                    goldBlockScoreVal = bScore;
-                }
 
                 block.tasks.forEach(task => {
                     totalTasksCount++;
@@ -529,31 +557,22 @@
 
             const overallScoreVal = Math.round(weightedScoreSum);
             
-            const scoreElem = document.getElementById('overallScore');
+            document.getElementById('overallScore').innerText = `${overallScoreVal}%`;
+            document.getElementById('overallProgressBar').style.width = `${overallScoreVal}%`;
+
             const statusElem = document.getElementById('overallStatus');
-            const progressElem = document.getElementById('overallProgressBar');
-
-            if (scoreElem) scoreElem.innerText = `${overallScoreVal}%`;
-            if (progressElem) progressElem.style.width = `${overallScoreVal}%`;
-
-            if (statusElem) {
-                if (overallScoreVal >= 85) {
-                    statusElem.innerText = 'Excelente';
-                    statusElem.className = 'text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30';
-                } else if (overallScoreVal >= 50) {
-                    statusElem.innerText = 'En Progreso';
-                    statusElem.className = 'text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30';
-                } else {
-                    statusElem.innerText = 'Pendiente';
-                    statusElem.className = 'text-xs px-2 py-1 rounded bg-slate-700 text-slate-300';
-                }
+            if (overallScoreVal >= 85) {
+                statusElem.innerText = 'Excelente';
+                statusElem.className = 'text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30';
+            } else if (overallScoreVal >= 50) {
+                statusElem.innerText = 'En Progreso';
+                statusElem.className = 'text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30';
+            } else {
+                statusElem.innerText = 'Pendiente';
+                statusElem.className = 'text-xs px-2 py-1 rounded bg-slate-700 text-slate-300';
             }
 
-            const tasksRatioElem = document.getElementById('tasksRatio');
-            if (tasksRatioElem) tasksRatioElem.innerText = `${completedTasksCount}/${totalTasksCount}`;
-
-            const goldElem = document.getElementById('goldBlockScore');
-            if (goldElem) goldElem.innerText = `${goldBlockScoreVal}%`;
+            document.getElementById('tasksRatio').innerText = `${completedTasksCount}/${totalTasksCount}`;
         }
 
         function renderBlocks() {
@@ -682,6 +701,44 @@
             if (badge) badge.innerText = `$${dayTotal.toFixed(2)} USD Hoy`;
         }
 
+        function renderMonthlySalesTable() {
+            const tbody = document.getElementById('monthlySalesTableBody');
+            const badge = document.getElementById('monthlySalesSummaryBadge');
+            if (!tbody) return;
+
+            const monthlyData = getMonthlyAggregates();
+            tbody.innerHTML = '';
+
+            if (monthlyData.salesList.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
+                            Aún no hay ventas registradas en el mes seleccionado.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                monthlyData.salesList.forEach(sale => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-800/50 transition text-xs';
+                    
+                    const badgeType = sale.type === 'activation' 
+                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">Activación</span>'
+                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>';
+
+                    row.innerHTML = `
+                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
+                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
+                        <td class="py-2.5 px-3">${badgeType}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            if (badge) badge.innerText = `$${monthlyData.amount.toFixed(2)} USD Acumulado Mes`;
+        }
+
         function updateCommissions() {
             const baseFixed = 1066.00;
             const recurrentHotels = globalSettings.recurrentHotels || 50;
@@ -690,24 +747,38 @@
             const monthlyData = getMonthlyAggregates();
             const oneTimeIncome = monthlyData.amount;
             const activationCount = monthlyData.activations;
+            const upsellCount = monthlyData.upsells;
             const activationBonus = activationCount >= 4 ? 200.00 : 0.00;
 
             const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + activationBonus;
             const effectiveHourlyRate = totalMonthlyEst / 160.0;
 
+            // Actualizar tarjetas principales
+            document.getElementById('activationsCount').innerText = activationCount;
+            document.getElementById('upsellsCount').innerText = upsellCount;
+
+            const actNote = document.getElementById('activationsProgressNote');
+            if (activationCount >= 4) {
+                actNote.innerText = '¡Bono de $200 DESBLOQUEADO!';
+                actNote.className = 'text-xs text-emerald-400 font-bold mt-2';
+            } else {
+                actNote.innerText = `Faltan ${4 - activationCount} para el bono de $200`;
+                actNote.className = 'text-xs text-purple-300/80 mt-2';
+            }
+
+            // Actualizar Calculadora
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en el mes`;
 
             document.getElementById('activationBonusDisplay').innerHTML = `$${activationBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('activationsCount').innerText = activationCount;
             
             const bonusNote = document.getElementById('activationBonusNote');
             if (activationCount >= 4) {
                 bonusNote.innerText = '¡Bono alcanzado! (≥4 activaciones)';
                 bonusNote.className = 'text-[10px] text-emerald-400 font-semibold';
             } else {
-                bonusNote.innerText = `Faltan ${4 - activationCount} para el bono de $200`;
+                bonusNote.innerText = `Requiere 4 activaciones (${activationCount}/4)`;
                 bonusNote.className = 'text-[10px] text-slate-500';
             }
 
@@ -721,33 +792,52 @@
         }
 
         function resetDay() {
-            if (confirm(`¿Estás seguro de reiniciar el registro y tareas del día ${appState.date}?`)) {
+            if (confirm(`¿Estás seguro de reiniciar las tareas y ventas registradas el día ${appState.date}?`)) {
                 appState.completedTasks = {};
                 appState.salesList = [];
                 saveData();
                 renderBlocks();
                 renderSales();
+                renderMonthlySalesTable();
             }
         }
 
         function downloadExcel() {
             let wb = XLSX.utils.book_new();
+            const monthlyData = getMonthlyAggregates();
 
-            // Hoja 1: Resumen Diario
-            let summaryData = [
-                ["FECHA", appState.date],
-                ["SISTEMA", "Swiss Hotelier KAM Daily Planner"],
+            // Hoja 1: Resumen Mensual & Proyección
+            let monthlySummaryData = [
+                ["MES EVALUADO", appState.date.substring(0, 7)],
+                ["SISTEMA", "Swiss Hotelier KAM Executive Hub"],
                 [""],
-                ["MÉTRICA", "VALOR"],
-                ["Tareas Completadas", document.getElementById('tasksRatio').innerText],
-                ["Score Diario Global", document.getElementById('overallScore').innerText],
-                ["Score Bloque de Oro", document.getElementById('goldBlockScore').innerText],
-                ["Ventas Totales Hoy", document.getElementById('salesSummaryBadge').innerText]
+                ["MÉTRICA / INGRESO", "VALOR"],
+                ["Base Fija (Salario + Internet)", "$1,066.00 USD"],
+                ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
+                ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
+                ["Nuevas Activaciones Logradas", monthlyData.activations],
+                ["Upsells / Módulos Extras Sold", monthlyData.upsells],
+                ["Bono por Activaciones (≥4)", monthlyData.activations >= 4 ? "$200.00 USD" : "$0.00 USD"],
+                ["------------------------------------", "--------------------"],
+                ["TOTAL INGRESOS ESTIMADO MES", document.getElementById('totalMonthlyIncomeDisplay').innerText],
+                ["TARIFA EFECTIVA POR HORA", document.getElementById('hourlyRateDisplay').innerText]
             ];
-            let wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-            XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Diario");
+            let wsMonthly = XLSX.utils.aoa_to_sheet(monthlySummaryData);
+            XLSX.utils.book_append_sheet(wb, wsMonthly, "Resumen del Mes");
 
-            // Hoja 2: Checklist
+            // Hoja 2: Cierres del Mes (Consolidado)
+            let salesMonthlyData = [["Fecha Registro", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
+            if (monthlyData.salesList.length > 0) {
+                monthlyData.salesList.forEach(s => {
+                    salesMonthlyData.push([s.date, s.client, s.type, s.amount]);
+                });
+            } else {
+                salesMonthlyData.push(["-", "Sin cierres este mes", "-", 0]);
+            }
+            let wsSalesMonthly = XLSX.utils.aoa_to_sheet(salesMonthlyData);
+            XLSX.utils.book_append_sheet(wb, wsSalesMonthly, "Consolidado Ventas Mes");
+
+            // Hoja 3: Checklist del Día Seleccionado
             let checklistData = [["Bloque", "Tarea", "Puntos", "Estado"]];
             blocksData.forEach(b => {
                 b.tasks.forEach(t => {
@@ -760,21 +850,9 @@
                 });
             });
             let wsChecklist = XLSX.utils.aoa_to_sheet(checklistData);
-            XLSX.utils.book_append_sheet(wb, wsChecklist, "Checklist Detallado");
+            XLSX.utils.book_append_sheet(wb, wsChecklist, `Checklist (${appState.date})`);
 
-            // Hoja 3: Ventas del Día
-            let salesData = [["Fecha", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
-            if (appState.salesList && appState.salesList.length > 0) {
-                appState.salesList.forEach(s => {
-                    salesData.push([s.date, s.client, s.type, s.amount]);
-                });
-            } else {
-                salesData.push([appState.date, "Sin ventas registradas", "-", 0]);
-            }
-            let wsSales = XLSX.utils.aoa_to_sheet(salesData);
-            XLSX.utils.book_append_sheet(wb, wsSales, "Ventas de Hoy");
-
-            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_${appState.date}.xlsx`);
+            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_Mensual_${appState.date.substring(0, 7)}.xlsx`);
         }
 
         function generateReport() {
@@ -782,48 +860,41 @@
             const dateElem = document.getElementById('modalReportDate');
             const contentElem = document.getElementById('modalReportContent');
 
-            dateElem.innerText = `Fecha de evaluación: ${appState.date}`;
+            dateElem.innerText = `Evaluación Ejecutiva Mes: ${appState.date.substring(0, 7)}`;
 
-            let completedTasksCount = 0;
-            let totalTasksCount = 0;
-            blocksData.forEach(b => {
-                b.tasks.forEach(t => {
-                    totalTasksCount++;
-                    if (appState.completedTasks && appState.completedTasks[t.id]) completedTasksCount++;
-                });
-            });
-
-            const daySales = appState.salesList || [];
-            const daySalesTotal = daySales.reduce((acc, curr) => acc + curr.amount, 0);
+            const monthlyData = getMonthlyAggregates();
 
             contentElem.innerHTML = `
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[11px] text-slate-400 uppercase">Score Global</span>
-                        <span class="text-2xl font-black text-emerald-400">${document.getElementById('overallScore').innerText}</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Activaciones</span>
+                        <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[11px] text-slate-400 uppercase">Avance Tareas</span>
-                        <span class="text-2xl font-black text-blue-400">${completedTasksCount}/${totalTasksCount}</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Upsells</span>
+                        <span class="text-2xl font-black text-amber-400">${monthlyData.upsells}</span>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 col-span-2 sm:col-span-1">
-                        <span class="block text-[11px] text-slate-400 uppercase">Ventas Hoy</span>
-                        <span class="text-2xl font-black text-amber-400">$${daySalesTotal.toFixed(2)}</span>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                        <span class="block text-[10px] text-slate-400 uppercase">Comisiones Mes</span>
+                        <span class="text-xl font-extrabold text-emerald-400">$${monthlyData.amount.toFixed(2)}</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                        <span class="block text-[10px] text-slate-400 uppercase">Tarifa/Hora</span>
+                        <span class="text-xl font-extrabold text-teal-300">${document.getElementById('hourlyRateDisplay').innerText}</span>
                     </div>
                 </div>
 
-                <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Desglose por Bloques de Trabajo</h4>
-                    <div class="space-y-2">
-                        ${blocksData.map(b => {
-                            const sc = calculateBlockScore(b);
-                            return `
-                                <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50 text-xs">
-                                    <span class="text-slate-200 font-medium">${b.title}</span>
-                                    <span class="font-bold text-emerald-400">${sc}%</span>
-                                </div>
-                            `;
-                        }).join('')}
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Desglose Final de Salario Estimado</h4>
+                    <div class="space-y-1.5 text-xs text-slate-300">
+                        <div class="flex justify-between"><span>Base Fija + Internet:</span><span class="font-semibold text-white">$1,066.00 USD</span></div>
+                        <div class="flex justify-between"><span>Hoteles Recurrentes (${globalSettings.recurrentHotels} @ $12):</span><span class="font-semibold text-white">$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD</span></div>
+                        <div class="flex justify-between"><span>Ventas y Upsells del Mes:</span><span class="font-semibold text-emerald-400">$${monthlyData.amount.toFixed(2)} USD</span></div>
+                        <div class="flex justify-between"><span>Bono Activaciones (≥4):</span><span class="font-semibold text-purple-400">${monthlyData.activations >= 4 ? '$200.00 USD' : '$0.00 USD'}</span></div>
+                        <div class="border-t border-slate-700 pt-2 flex justify-between text-sm font-bold text-emerald-400">
+                            <span>TOTAL MENSUAL ESTIMADO:</span>
+                            <span>${document.getElementById('totalMonthlyIncomeDisplay').innerText}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -836,17 +907,14 @@
         }
 
         function copyReportToClipboard(e) {
-            let text = `📊 Swiss Hotelier - Resumen Ejecutivo (${appState.date})\n`;
+            const monthlyData = getMonthlyAggregates();
+            let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${appState.date.substring(0, 7)})\n`;
             text += `--------------------------------------------------\n`;
-            text += `• Score Global: ${document.getElementById('overallScore').innerText}\n`;
-            text += `• Tareas Completadas: ${document.getElementById('tasksRatio').innerText}\n`;
-            text += `• Bloque de Oro (Ventas): ${document.getElementById('goldBlockScore').innerText}\n`;
-            text += `• Ventas Registradas Hoy: ${document.getElementById('salesSummaryBadge').innerText}\n\n`;
-            text += `Avance por Bloques:\n`;
-            
-            blocksData.forEach(b => {
-                text += `- ${b.title}: ${calculateBlockScore(b)}%\n`;
-            });
+            text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4)\n`;
+            text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
+            text += `• Comisiones One-Time Acumuladas: $${monthlyData.amount.toFixed(2)} USD\n`;
+            text += `• Tarifa Efectiva Alcanzada: ${document.getElementById('hourlyRateDisplay').innerText}\n\n`;
+            text += `💵 Proyección Total Salario Mes: ${document.getElementById('totalMonthlyIncomeDisplay').innerText}\n`;
 
             navigator.clipboard.writeText(text).then(() => {
                 const btn = e.target.closest('button');
