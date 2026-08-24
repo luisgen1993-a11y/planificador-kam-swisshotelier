@@ -49,8 +49,8 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
-        <!-- Tarjetas de Métricas Globales (Día + Mes) -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <!-- Tarjetas de Métricas Globales (Día + Mes + Setup) -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Score Diario Global</div>
                 <div class="flex items-baseline justify-between">
@@ -72,6 +72,15 @@
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Pipeline en Setup</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="setupPipelineCount" class="text-3xl font-extrabold text-cyan-400">0</span>
+                    <i class="fa-solid fa-gears text-cyan-500/40 text-xl"></i>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Aceptaron / Pendiente Go-Live</p>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Activaciones del Mes</div>
                 <div class="flex items-baseline justify-between">
                     <span id="activationsCount" class="text-3xl font-extrabold text-purple-400">0</span>
@@ -90,7 +99,7 @@
             </div>
         </div>
 
-        <!-- Calculadora Resumen del Mes (Con Selector de Mes Integrado) -->
+        <!-- Calculadora Resumen del Mes -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b border-slate-700 pb-3">
                 <div>
@@ -131,9 +140,9 @@
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Comisiones Mes (One-Time)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Comisiones Mes (Activaciones / Upsells)</label>
                     <div id="oneTimeIncomeDisplay" class="text-lg font-bold text-amber-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
-                    <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 ventas en el mes</span>
+                    <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 cobros en el mes</span>
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
@@ -162,14 +171,14 @@
             </div>
         </div>
 
-        <!-- Registro de Ventas del Día -->
+        <!-- Registro de Negocios y Ventas del Día -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-receipt text-amber-400"></i> Registro de Ventas & Upsells del Día
+                        <i class="fa-solid fa-receipt text-amber-400"></i> Registrar Nuevo Hotel o Venta
                     </h2>
-                    <p class="text-xs text-slate-400">Añade ventas del día actual para registrarlas en la hoja y sumarlas al consolidado mensual</p>
+                    <p class="text-xs text-slate-400">Añade deals en Setup (en proceso) o Activaciones/Upsells inmediatos</p>
                 </div>
                 <span id="salesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
                     $0.00 USD Hoy
@@ -182,22 +191,23 @@
                     <input type="text" id="saleClient" required placeholder="Ej: Hotel Gran Playa" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Monto (USD)</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Monto Setup/Venta (USD)</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1.5 text-slate-400 text-sm">$</span>
                         <input type="number" id="saleAmount" step="0.01" min="1" required placeholder="200.00" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-7 pr-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Tipo de Ingreso</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Estado de la Venta</label>
                     <select id="saleType" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
-                        <option value="activation">Activación (Setup Fee)</option>
+                        <option value="setup">Aceptó Propuesta (A Setup / En Configuración)</option>
+                        <option value="activation">Activación Inmediata (Go-Live Hoy)</option>
                         <option value="upsell">Upsell / Módulo Extra</option>
                     </select>
                 </div>
                 <div class="flex items-end">
                     <button type="submit" class="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-lg transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20">
-                        <i class="fa-solid fa-plus"></i> Registrar Venta
+                        <i class="fa-solid fa-plus"></i> Registrar Deal
                     </button>
                 </div>
             </form>
@@ -208,7 +218,7 @@
                         <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
                             <th class="py-2 px-3">Fecha</th>
                             <th class="py-2 px-3">Cliente / Hotel</th>
-                            <th class="py-2 px-3">Tipo</th>
+                            <th class="py-2 px-3">Estado / Tipo</th>
                             <th class="py-2 px-3 text-right">Monto (USD)</th>
                             <th class="py-2 px-3 text-center">Acción</th>
                         </tr>
@@ -220,14 +230,45 @@
             </div>
         </div>
 
-        <!-- Tabla Centralizada de Ventas del Mes -->
+        <!-- Tarjeta de Gestión de Pipeline en Setup -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gears text-cyan-400"></i> Hoteles en Setup (Pendientes de Activación / Go-Live)
+                    </h2>
+                    <p class="text-xs text-slate-400">Aceptaron la propuesta y se están configurando. Haz clic en "Activar" el día del Go-Live para liberar la comisión.</p>
+                </div>
+                <span id="setupPipelineBadge" class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                    0 Hoteles en Setup
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
+                            <th class="py-2.5 px-3">Fecha de Aceptación</th>
+                            <th class="py-2.5 px-3">Cliente / Hotel</th>
+                            <th class="py-2.5 px-3">Monto Estimado</th>
+                            <th class="py-2.5 px-3 text-center">Acción de Go-Live</th>
+                        </tr>
+                    </thead>
+                    <tbody id="setupPipelineTableBody" class="divide-y divide-slate-700/50">
+                        <!-- Rendered via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabla Centralizada de Ventas y Activaciones del Mes -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Consolidadas del Mes (<span id="selectedMonthTitle">--</span>)
+                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Oficiales del Mes (<span id="selectedMonthTitle">--</span>)
                     </h2>
-                    <p class="text-xs text-slate-400">Histórico completo de cierres para el periodo seleccionado</p>
+                    <p class="text-xs text-slate-400">Histórico de proyectos activados y cobrados en el periodo seleccionado</p>
                 </div>
                 <span id="monthlySalesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
                     $0.00 USD Acumulado
@@ -238,10 +279,10 @@
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
-                            <th class="py-2.5 px-3">Fecha de Registro</th>
+                            <th class="py-2.5 px-3">Fecha de Activación</th>
                             <th class="py-2.5 px-3">Cliente / Hotel</th>
                             <th class="py-2.5 px-3">Tipo</th>
-                            <th class="py-2.5 px-3 text-right">Monto (USD)</th>
+                            <th class="py-2.5 px-3 text-right">Comisión (USD)</th>
                         </tr>
                     </thead>
                     <tbody id="monthlySalesTableBody" class="divide-y divide-slate-700/50">
@@ -380,7 +421,7 @@
             salesList: []
         };
 
-        let selectedMonth = new Date().toISOString().substring(0, 7); // Formato YYYY-MM
+        let selectedMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
         let monthlyRemoteList = [];
         let globalSettings = { recurrentHotels: 50 };
         let isFetchingRemote = false;
@@ -394,7 +435,6 @@
             datePicker.value = appState.date;
             monthPicker.value = selectedMonth;
 
-            // Escuchar cambio de fecha diaria
             datePicker.addEventListener('change', (e) => {
                 appState.date = e.target.value;
                 const newMonth = appState.date.substring(0, 7);
@@ -406,7 +446,6 @@
                 loadDataForDate();
             });
 
-            // Escuchar cambio manual de mes
             monthPicker.addEventListener('change', (e) => {
                 selectedMonth = e.target.value;
                 loadMonthlyDataOnly();
@@ -450,7 +489,6 @@
             const localKey = `swiss_kam_checklist_${appState.date}`;
             
             try {
-                // 1. Cargar datos del día seleccionado
                 const dayRes = await fetch(`${SCRIPT_URL}?action=getData&date=${appState.date}`);
                 if (dayRes.ok) {
                     const data = await dayRes.json();
@@ -464,9 +502,7 @@
                     }
                 }
 
-                // 2. Cargar datos consolidados del mes seleccionado
                 await fetchMonthlyData();
-
                 setCloudStatus('saved');
             } catch (err) {
                 console.warn('Utilizando cache local:', err);
@@ -482,6 +518,7 @@
 
             renderBlocks();
             renderSales();
+            renderSetupPipelineTable();
             renderMonthlySalesTable();
             updateMetrics();
             await updateCommissions();
@@ -495,6 +532,7 @@
             } catch(e) {
                 setCloudStatus('error');
             }
+            renderSetupPipelineTable();
             renderMonthlySalesTable();
             await updateCommissions();
         }
@@ -531,6 +569,7 @@
 
             updateMetrics();
             await updateCommissions();
+            renderSetupPipelineTable();
             renderMonthlySalesTable();
 
             try {
@@ -557,18 +596,20 @@
             let totalMonthlyActivations = 0;
             let totalMonthlyUpsells = 0;
             let allMonthlySalesList = [];
+            let setupPipelineList = [];
 
             monthlyRemoteList.forEach(dayData => {
                 if (dayData && dayData.salesList) {
                     dayData.salesList.forEach(sale => {
-                        totalMonthlySalesAmount += parseFloat(sale.amount || 0);
-                        totalMonthlySalesCount++;
-                        if (sale.type === 'activation') {
-                            totalMonthlyActivations++;
-                        } else if (sale.type === 'upsell') {
-                            totalMonthlyUpsells++;
+                        if (sale.type === 'activation' || sale.type === 'upsell') {
+                            totalMonthlySalesAmount += parseFloat(sale.amount || 0);
+                            totalMonthlySalesCount++;
+                            if (sale.type === 'activation') totalMonthlyActivations++;
+                            if (sale.type === 'upsell') totalMonthlyUpsells++;
+                            allMonthlySalesList.push(sale);
+                        } else if (sale.type === 'setup') {
+                            setupPipelineList.push(sale);
                         }
-                        allMonthlySalesList.push(sale);
                     });
                 }
             });
@@ -580,7 +621,8 @@
                 count: totalMonthlySalesCount,
                 activations: totalMonthlyActivations,
                 upsells: totalMonthlyUpsells,
-                salesList: allMonthlySalesList
+                salesList: allMonthlySalesList,
+                setupPipeline: setupPipelineList
             };
         }
 
@@ -722,6 +764,18 @@
             saveData();
         }
 
+        // Marcar hotel de Setup a Activación oficial
+        function convertSetupToActivation(saleId) {
+            if (!appState.salesList) return;
+            const item = appState.salesList.find(s => s.id === saleId);
+            if (item) {
+                item.type = 'activation';
+                item.date = appState.date; // Se registra la fecha del día actual como la oficial de Go-Live
+                renderSales();
+                saveData();
+            }
+        }
+
         function renderSales() {
             const tbody = document.getElementById('salesTableBody');
             const badge = document.getElementById('salesSummaryBadge');
@@ -734,19 +788,25 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay ventas registradas para esta fecha (${appState.date}). Registra una nueva arriba.
+                            No hay hoteles ni ventas registradas en esta fecha (${appState.date}). Registra uno arriba.
                         </td>
                     </tr>
                 `;
             } else {
                 appState.salesList.forEach(sale => {
-                    dayTotal += sale.amount;
+                    if (sale.type !== 'setup') dayTotal += sale.amount;
+                    
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-slate-800/50 transition text-xs';
                     
-                    const badgeType = sale.type === 'activation' 
-                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">Activación</span>'
-                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>';
+                    let badgeType = '';
+                    if (sale.type === 'setup') {
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>En Setup</span>';
+                    } else if (sale.type === 'activation') {
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activación</span>';
+                    } else {
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"><i class="fa-solid fa-bolt mr-1"></i>Upsell</span>';
+                    }
 
                     row.innerHTML = `
                         <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
@@ -763,7 +823,48 @@
                 });
             }
 
-            if (badge) badge.innerText = `$${dayTotal.toFixed(2)} USD Hoy`;
+            if (badge) badge.innerText = `$${dayTotal.toFixed(2)} USD Cobrables Hoy`;
+        }
+
+        function renderSetupPipelineTable() {
+            const tbody = document.getElementById('setupPipelineTableBody');
+            const badge = document.getElementById('setupPipelineBadge');
+            const kpi = document.getElementById('setupPipelineCount');
+            if (!tbody) return;
+
+            const monthlyData = getMonthlyAggregates();
+            const setupList = monthlyData.setupPipeline;
+            tbody.innerHTML = '';
+
+            if (kpi) kpi.innerText = setupList.length;
+            if (badge) badge.innerText = `${setupList.length} Hoteles en Setup`;
+
+            if (setupList.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
+                            No hay hoteles actualmente en Setup para ${selectedMonth}.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                setupList.forEach(sale => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-800/50 transition text-xs';
+                    
+                    row.innerHTML = `
+                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
+                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
+                        <td class="py-2.5 px-3 font-bold text-slate-300">$${sale.amount.toFixed(2)} USD</td>
+                        <td class="py-2.5 px-3 text-center">
+                            <button onclick="convertSetupToActivation('${sale.id}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition text-[11px] border border-purple-400 flex items-center gap-1 mx-auto">
+                                <i class="fa-solid fa-rocket"></i> Activar Hotel Hoy
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
         }
 
         function renderMonthlySalesTable() {
@@ -778,7 +879,7 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
-                            Aún no hay ventas registradas en la nube para el mes de ${selectedMonth}.
+                            Aún no hay activaciones o upsells oficiales para el mes de ${selectedMonth}.
                         </td>
                     </tr>
                 `;
@@ -809,16 +910,13 @@
             const recurrentHotels = globalSettings.recurrentHotels || 50;
             const recurrentIncome = recurrentHotels * 12.00;
 
-            // 1. Datos del mes seleccionado actualmente
             const monthlyData = getMonthlyAggregates();
             const oneTimeIncome = monthlyData.amount;
             const activationCount = monthlyData.activations;
             const upsellCount = monthlyData.upsells;
 
-            // Estado de meta del mes actual
             const currentMonthBonusUnlocked = activationCount >= 4;
 
-            // 2. Obtener datos del MES ANTERIOR para calcular el bono cobrable este mes
             let previousMonthBonusEarned = 0.00;
             
             const [year, month] = selectedMonth.split('-').map(Number);
@@ -848,14 +946,12 @@
                 console.warn('No se pudo verificar el bono del mes anterior:', e);
             }
 
-            // 3. Cálculo Total Cobrable en el Mes Seleccionado
             const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + previousMonthBonusEarned;
             const effectiveHourlyRate = totalMonthlyEst / 160.0;
 
             document.getElementById('activationsCount').innerText = activationCount;
             document.getElementById('upsellsCount').innerText = upsellCount;
 
-            // Indicador visual de Meta del Mes Actual
             const actNote = document.getElementById('activationsProgressNote');
             if (currentMonthBonusUnlocked) {
                 actNote.innerText = '¡Bono $200 LOGRADO! (Se cobra el mes siguiente)';
@@ -867,9 +963,8 @@
 
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en ${selectedMonth}`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} cobros en ${selectedMonth}`;
 
-            // Mostrar Bono Cobrado (Proveniente del mes anterior)
             document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonusEarned.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             
             const bonusNote = document.getElementById('activationBonusNote');
@@ -897,6 +992,7 @@
                 saveData();
                 renderBlocks();
                 renderSales();
+                renderSetupPipelineTable();
                 renderMonthlySalesTable();
             }
         }
@@ -914,6 +1010,7 @@
                 ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
                 ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
                 ["Nuevas Activaciones Logradas Este Mes", monthlyData.activations],
+                ["Hoteles en Setup (Pipeline en Proceso)", monthlyData.setupPipeline.length],
                 ["Upsells / Módulos Extras Sold Este Mes", monthlyData.upsells],
                 ["Bono Activaciones Cobrado (Mes Previo)", document.getElementById('activationBonusDisplay').innerText],
                 ["------------------------------------", "--------------------"],
@@ -967,8 +1064,8 @@
                         <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Upsells Mes</span>
-                        <span class="text-2xl font-black text-amber-400">${monthlyData.upsells}</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Hoteles en Setup</span>
+                        <span class="text-2xl font-black text-cyan-400">${monthlyData.setupPipeline.length}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
                         <span class="block text-[10px] text-slate-400 uppercase">Comisiones Mes</span>
@@ -1007,6 +1104,7 @@
             let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${selectedMonth})\n`;
             text += `--------------------------------------------------\n`;
             text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4 para bono próx. mes)\n`;
+            text += `• Hoteles Actualmente en Setup: ${monthlyData.setupPipeline.length}\n`;
             text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
             text += `• Comisiones One-Time Acumuladas: $${monthlyData.amount.toFixed(2)} USD\n`;
             text += `• Bono Cobrado (Mes Previo): ${document.getElementById('activationBonusDisplay').innerText}\n`;
