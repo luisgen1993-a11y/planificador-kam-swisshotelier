@@ -137,9 +137,9 @@
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Bono Activaciones (≥4)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Bono Activaciones (Mes Ant.)</label>
                     <div id="activationBonusDisplay" class="text-lg font-bold text-purple-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
-                    <span id="activationBonusNote" class="text-[10px] text-slate-500">Requiere 4 activaciones</span>
+                    <span id="activationBonusNote" class="text-[10px] text-slate-500">Logro del mes previo</span>
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
@@ -399,7 +399,6 @@
                 appState.date = e.target.value;
                 const newMonth = appState.date.substring(0, 7);
                 
-                // Si al cambiar de día cambia el mes, actualizamos también el selector de mes
                 if (newMonth !== selectedMonth) {
                     selectedMonth = newMonth;
                     monthPicker.value = selectedMonth;
@@ -485,10 +484,9 @@
             renderSales();
             renderMonthlySalesTable();
             updateMetrics();
-            updateCommissions();
+            await updateCommissions();
         }
 
-        // Función específica para cambiar de mes manualmente sin cambiar de fecha diaria
         async function loadMonthlyDataOnly() {
             setCloudStatus('syncing');
             try {
@@ -498,7 +496,7 @@
                 setCloudStatus('error');
             }
             renderMonthlySalesTable();
-            updateCommissions();
+            await updateCommissions();
         }
 
         async function fetchMonthlyData() {
@@ -517,7 +515,6 @@
             const localKey = `swiss_kam_checklist_${appState.date}`;
             localStorage.setItem(localKey, JSON.stringify(appState));
 
-            // Actualizar lista mensual remota localmente si la fecha pertenece al mes seleccionado
             if (appState.date.indexOf(selectedMonth) === 0) {
                 let updated = false;
                 for (let i = 0; i < monthlyRemoteList.length; i++) {
@@ -533,7 +530,7 @@
             }
 
             updateMetrics();
-            updateCommissions();
+            await updateCommissions();
             renderMonthlySalesTable();
 
             try {
@@ -807,29 +804,64 @@
             if (badge) badge.innerText = `$${monthlyData.amount.toFixed(2)} USD (${selectedMonth})`;
         }
 
-        function updateCommissions() {
+        async function updateCommissions() {
             const baseFixed = 1066.00;
             const recurrentHotels = globalSettings.recurrentHotels || 50;
             const recurrentIncome = recurrentHotels * 12.00;
 
+            // 1. Datos del mes seleccionado actualmente
             const monthlyData = getMonthlyAggregates();
             const oneTimeIncome = monthlyData.amount;
             const activationCount = monthlyData.activations;
             const upsellCount = monthlyData.upsells;
-            const activationBonus = activationCount >= 4 ? 200.00 : 0.00;
 
-            const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + activationBonus;
+            // Estado de meta del mes actual
+            const currentMonthBonusUnlocked = activationCount >= 4;
+
+            // 2. Obtener datos del MES ANTERIOR para calcular el bono cobrable este mes
+            let previousMonthBonusEarned = 0.00;
+            
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const prevDate = new Date(year, month - 2, 1);
+            const prevMonthStr = prevDate.toISOString().substring(0, 7);
+
+            try {
+                const prevRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${prevMonthStr}`);
+                if (prevRes.ok) {
+                    const prevData = await prevRes.json();
+                    const prevList = prevData.monthlyData || [];
+                    let prevActivations = 0;
+
+                    prevList.forEach(day => {
+                        if (day.salesList) {
+                            day.salesList.forEach(sale => {
+                                if (sale.type === 'activation') prevActivations++;
+                            });
+                        }
+                    });
+
+                    if (prevActivations >= 4) {
+                        previousMonthBonusEarned = 200.00;
+                    }
+                }
+            } catch(e) {
+                console.warn('No se pudo verificar el bono del mes anterior:', e);
+            }
+
+            // 3. Cálculo Total Cobrable en el Mes Seleccionado
+            const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + previousMonthBonusEarned;
             const effectiveHourlyRate = totalMonthlyEst / 160.0;
 
             document.getElementById('activationsCount').innerText = activationCount;
             document.getElementById('upsellsCount').innerText = upsellCount;
 
+            // Indicador visual de Meta del Mes Actual
             const actNote = document.getElementById('activationsProgressNote');
-            if (activationCount >= 4) {
-                actNote.innerText = '¡Bono de $200 DESBLOQUEADO!';
+            if (currentMonthBonusUnlocked) {
+                actNote.innerText = '¡Bono $200 LOGRADO! (Se cobra el mes siguiente)';
                 actNote.className = 'text-xs text-emerald-400 font-bold mt-2';
             } else {
-                actNote.innerText = `Faltan ${4 - activationCount} para el bono de $200`;
+                actNote.innerText = `Faltan ${4 - activationCount} activaciones para bono del prox. mes`;
                 actNote.className = 'text-xs text-purple-300/80 mt-2';
             }
 
@@ -837,14 +869,15 @@
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} ventas en ${selectedMonth}`;
 
-            document.getElementById('activationBonusDisplay').innerHTML = `$${activationBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            // Mostrar Bono Cobrado (Proveniente del mes anterior)
+            document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonusEarned.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             
             const bonusNote = document.getElementById('activationBonusNote');
-            if (activationCount >= 4) {
-                bonusNote.innerText = '¡Bono alcanzado! (≥4 activaciones)';
+            if (previousMonthBonusEarned > 0) {
+                bonusNote.innerText = `Bono cobrado por logro de ${prevMonthStr}`;
                 bonusNote.className = 'text-[10px] text-emerald-400 font-semibold';
             } else {
-                bonusNote.innerText = `Requiere 4 activaciones (${activationCount}/4)`;
+                bonusNote.innerText = `Sin bono de ${prevMonthStr} (<4 activaciones)`;
                 bonusNote.className = 'text-[10px] text-slate-500';
             }
 
@@ -880,9 +913,9 @@
                 ["Base Fija (Salario + Internet)", "$1,066.00 USD"],
                 ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
                 ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
-                ["Nuevas Activaciones Logradas", monthlyData.activations],
-                ["Upsells / Módulos Extras Sold", monthlyData.upsells],
-                ["Bono por Activaciones (≥4)", monthlyData.activations >= 4 ? "$200.00 USD" : "$0.00 USD"],
+                ["Nuevas Activaciones Logradas Este Mes", monthlyData.activations],
+                ["Upsells / Módulos Extras Sold Este Mes", monthlyData.upsells],
+                ["Bono Activaciones Cobrado (Mes Previo)", document.getElementById('activationBonusDisplay').innerText],
                 ["------------------------------------", "--------------------"],
                 ["TOTAL INGRESOS ESTIMADO MES", document.getElementById('totalMonthlyIncomeDisplay').innerText],
                 ["TARIFA EFECTIVA POR HORA", document.getElementById('hourlyRateDisplay').innerText]
@@ -930,11 +963,11 @@
             contentElem.innerHTML = `
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Activaciones</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Activaciones Mes</span>
                         <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Upsells</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Upsells Mes</span>
                         <span class="text-2xl font-black text-amber-400">${monthlyData.upsells}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
@@ -953,7 +986,7 @@
                         <div class="flex justify-between"><span>Base Fija + Internet:</span><span class="font-semibold text-white">$1,066.00 USD</span></div>
                         <div class="flex justify-between"><span>Hoteles Recurrentes (${globalSettings.recurrentHotels} @ $12):</span><span class="font-semibold text-white">$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD</span></div>
                         <div class="flex justify-between"><span>Ventas y Upsells del Mes:</span><span class="font-semibold text-emerald-400">$${monthlyData.amount.toFixed(2)} USD</span></div>
-                        <div class="flex justify-between"><span>Bono Activaciones (≥4):</span><span class="font-semibold text-purple-400">${monthlyData.activations >= 4 ? '$200.00 USD' : '$0.00 USD'}</span></div>
+                        <div class="flex justify-between"><span>Bono Activaciones (Cobrado de Mes Previo):</span><span class="font-semibold text-purple-400">${document.getElementById('activationBonusDisplay').innerText}</span></div>
                         <div class="border-t border-slate-700 pt-2 flex justify-between text-sm font-bold text-emerald-400">
                             <span>TOTAL MENSUAL ESTIMADO:</span>
                             <span>${document.getElementById('totalMonthlyIncomeDisplay').innerText}</span>
@@ -973,9 +1006,10 @@
             const monthlyData = getMonthlyAggregates();
             let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${selectedMonth})\n`;
             text += `--------------------------------------------------\n`;
-            text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4)\n`;
+            text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4 para bono próx. mes)\n`;
             text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
             text += `• Comisiones One-Time Acumuladas: $${monthlyData.amount.toFixed(2)} USD\n`;
+            text += `• Bono Cobrado (Mes Previo): ${document.getElementById('activationBonusDisplay').innerText}\n`;
             text += `• Tarifa Efectiva Alcanzada: ${document.getElementById('hourlyRateDisplay').innerText}\n\n`;
             text += `💵 Proyección Total Salario Mes: ${document.getElementById('totalMonthlyIncomeDisplay').innerText}\n`;
 
