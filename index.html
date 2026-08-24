@@ -49,7 +49,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
-        <!-- Tarjetas de Métricas Globales (Día + Mes + Setup) -->
+        <!-- Tarjetas de Métricas Globales -->
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
                 <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Score Diario Global</div>
@@ -77,7 +77,7 @@
                     <span id="setupPipelineCount" class="text-3xl font-extrabold text-cyan-400">0</span>
                     <i class="fa-solid fa-gears text-cyan-500/40 text-xl"></i>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Aceptaron / Pendiente Go-Live</p>
+                <p class="text-xs text-slate-400 mt-2">Nuevos PMS & Upsells en Setup</p>
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
@@ -95,7 +95,7 @@
                     <span id="upsellsCount" class="text-3xl font-extrabold text-amber-400">0</span>
                     <i class="fa-solid fa-bolt text-amber-500/40 text-xl"></i>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Módulos extras vendidos</p>
+                <p class="text-xs text-slate-400 mt-2">Módulos/Cambios Activos</p>
             </div>
         </div>
 
@@ -108,7 +108,6 @@
                             <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección
                         </h2>
                         
-                        <!-- SELECTOR DE MES -->
                         <div class="flex items-center bg-slate-900 border border-emerald-500/50 rounded-lg px-2.5 py-1 gap-2 shadow-inner">
                             <i class="fa-solid fa-calendar-days text-emerald-400 text-xs"></i>
                             <span class="text-xs text-slate-400 font-semibold">Consultar Mes:</span>
@@ -188,21 +187,22 @@
             <form onsubmit="handleAddSale(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Hotel / Cliente / Descripción</label>
-                    <input type="text" id="saleClient" required placeholder="Ej: Hotel Gran Playa" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <input type="text" id="saleClient" required placeholder="Ej: Hotel Gran Playa / Cambio PMS" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Monto Setup/Venta (USD)</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Monto (USD)</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1.5 text-slate-400 text-sm">$</span>
                         <input type="number" id="saleAmount" step="0.01" min="1" required placeholder="200.00" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-7 pr-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Estado de la Venta</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Estado / Tipo de Negocio</label>
                     <select id="saleType" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
-                        <option value="setup">Aceptó Propuesta (A Setup / En Configuración)</option>
-                        <option value="activation">Activación Inmediata (Go-Live Hoy)</option>
-                        <option value="upsell">Upsell / Módulo Extra</option>
+                        <option value="setup">Nuevo Hotel -> En Setup (Pendiente Go-Live)</option>
+                        <option value="upsell_setup">Upsell / Cambio PMS -> En Setup (Pendiente Go-Live)</option>
+                        <option value="activation">Activación Nueva (Go-Live Directo Hoy)</option>
+                        <option value="upsell">Upsell Directo (Sin Setup / Cobro Hoy)</option>
                     </select>
                 </div>
                 <div class="flex items-end">
@@ -230,17 +230,17 @@
             </div>
         </div>
 
-        <!-- Tarjeta de Gestión de Pipeline en Setup -->
+        <!-- Tarjeta de Gestión de Pipeline en Setup (Hoteles y Upsells) -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-gears text-cyan-400"></i> Hoteles en Setup (Pendientes de Activación / Go-Live)
+                        <i class="fa-solid fa-gears text-cyan-400"></i> Deals en Setup (Pendientes de Activación / Go-Live)
                     </h2>
-                    <p class="text-xs text-slate-400">Aceptaron la propuesta y se están configurando. Haz clic en "Activar" el día del Go-Live para liberar la comisión.</p>
+                    <p class="text-xs text-slate-400">Cuentas nuevas y Upsells en implementación. Al activarlos, se trasladan al día actual para cobro de comisión.</p>
                 </div>
                 <span id="setupPipelineBadge" class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
-                    0 Hoteles en Setup
+                    0 Deals en Setup
                 </span>
             </div>
 
@@ -248,9 +248,10 @@
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
-                            <th class="py-2.5 px-3">Fecha de Aceptación</th>
+                            <th class="py-2.5 px-3">Fecha de Cierre</th>
                             <th class="py-2.5 px-3">Cliente / Hotel</th>
-                            <th class="py-2.5 px-3">Monto Estimado</th>
+                            <th class="py-2.5 px-3">Tipo de Deal</th>
+                            <th class="py-2.5 px-3 text-right">Monto Estimado</th>
                             <th class="py-2.5 px-3 text-center">Acción de Go-Live</th>
                         </tr>
                     </thead>
@@ -344,7 +345,7 @@
                 badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
                 weight: 15,
                 tasks: [
-                    { id: 't1_1', text: 'Auditoría del Pipeline de Setup (cuentas estancadas)', pts: 25 },
+                    { id: 't1_1', text: 'Auditoría del Pipeline de Setup (cuentas estancadas y upsells)', pts: 25 },
                     { id: 't1_2', text: 'Llamadas/mensajes directos a hoteleros para destrabar setup', pts: 35 },
                     { id: 't1_3', text: 'Coordinación interna con equipo de soporte técnico', pts: 20 },
                     { id: 't1_4', text: 'Verificación de meta de 4 activaciones mensuales', pts: 20 }
@@ -607,7 +608,7 @@
                             if (sale.type === 'activation') totalMonthlyActivations++;
                             if (sale.type === 'upsell') totalMonthlyUpsells++;
                             allMonthlySalesList.push(sale);
-                        } else if (sale.type === 'setup') {
+                        } else if (sale.type === 'setup' || sale.type === 'upsell_setup') {
                             setupPipelineList.push(sale);
                         }
                     });
@@ -764,12 +765,13 @@
             saveData();
         }
 
-        // Marcar hotel de Setup a Activación oficial
+        // Marcar hotel u Upsell de Setup a Activación oficial
         function convertSetupToActivation(saleId) {
             if (!appState.salesList) return;
             const item = appState.salesList.find(s => s.id === saleId);
             if (item) {
-                item.type = 'activation';
+                // Si venía de un Setup de Upsell, pasa a Upsell Activo; si venía de un Hotel Setup, pasa a Activación completa.
+                item.type = (item.type === 'upsell_setup') ? 'upsell' : 'activation';
                 item.date = appState.date; // Se registra la fecha del día actual como la oficial de Go-Live
                 renderSales();
                 saveData();
@@ -788,24 +790,28 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay hoteles ni ventas registradas en esta fecha (${appState.date}). Registra uno arriba.
+                            No hay registros en esta fecha (${appState.date}). Añade uno arriba.
                         </td>
                     </tr>
                 `;
             } else {
                 appState.salesList.forEach(sale => {
-                    if (sale.type !== 'setup') dayTotal += sale.amount;
+                    if (sale.type === 'activation' || sale.type === 'upsell') {
+                        dayTotal += sale.amount;
+                    }
                     
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-slate-800/50 transition text-xs';
                     
                     let badgeType = '';
                     if (sale.type === 'setup') {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>En Setup</span>';
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>Hotel en Setup</span>';
+                    } else if (sale.type === 'upsell_setup') {
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>Upsell en Setup</span>';
                     } else if (sale.type === 'activation') {
                         badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activación</span>';
                     } else {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"><i class="fa-solid fa-bolt mr-1"></i>Upsell</span>';
+                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"><i class="fa-solid fa-bolt mr-1"></i>Upsell Activo</span>';
                     }
 
                     row.innerHTML = `
@@ -837,13 +843,13 @@
             tbody.innerHTML = '';
 
             if (kpi) kpi.innerText = setupList.length;
-            if (badge) badge.innerText = `${setupList.length} Hoteles en Setup`;
+            if (badge) badge.innerText = `${setupList.length} Deals en Setup`;
 
             if (setupList.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay hoteles actualmente en Setup para ${selectedMonth}.
+                        <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
+                            No hay cuentas ni upsells en Setup para ${selectedMonth}.
                         </td>
                     </tr>
                 `;
@@ -852,13 +858,18 @@
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-slate-800/50 transition text-xs';
                     
+                    const dealTag = (sale.type === 'upsell_setup')
+                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>'
+                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">Hotel PMS</span>';
+
                     row.innerHTML = `
                         <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
                         <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
-                        <td class="py-2.5 px-3 font-bold text-slate-300">$${sale.amount.toFixed(2)} USD</td>
+                        <td class="py-2.5 px-3">${dealTag}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-slate-300">$${sale.amount.toFixed(2)} USD</td>
                         <td class="py-2.5 px-3 text-center">
                             <button onclick="convertSetupToActivation('${sale.id}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition text-[11px] border border-purple-400 flex items-center gap-1 mx-auto">
-                                <i class="fa-solid fa-rocket"></i> Activar Hotel Hoy
+                                <i class="fa-solid fa-rocket"></i> Activar Hoy
                             </button>
                         </td>
                     `;
@@ -890,7 +901,7 @@
                     
                     const badgeType = sale.type === 'activation' 
                         ? '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">Activación</span>'
-                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>';
+                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Upsell</span>';
 
                     row.innerHTML = `
                         <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
@@ -1010,7 +1021,7 @@
                 ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
                 ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
                 ["Nuevas Activaciones Logradas Este Mes", monthlyData.activations],
-                ["Hoteles en Setup (Pipeline en Proceso)", monthlyData.setupPipeline.length],
+                ["Deals en Setup (Nuevos + Upsells en proceso)", monthlyData.setupPipeline.length],
                 ["Upsells / Módulos Extras Sold Este Mes", monthlyData.upsells],
                 ["Bono Activaciones Cobrado (Mes Previo)", document.getElementById('activationBonusDisplay').innerText],
                 ["------------------------------------", "--------------------"],
@@ -1064,7 +1075,7 @@
                         <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Hoteles en Setup</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Deals en Setup</span>
                         <span class="text-2xl font-black text-cyan-400">${monthlyData.setupPipeline.length}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
@@ -1104,7 +1115,7 @@
             let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${selectedMonth})\n`;
             text += `--------------------------------------------------\n`;
             text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4 para bono próx. mes)\n`;
-            text += `• Hoteles Actualmente en Setup: ${monthlyData.setupPipeline.length}\n`;
+            text += `• Deals Actualmente en Setup: ${monthlyData.setupPipeline.length}\n`;
             text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
             text += `• Comisiones One-Time Acumuladas: $${monthlyData.amount.toFixed(2)} USD\n`;
             text += `• Bono Cobrado (Mes Previo): ${document.getElementById('activationBonusDisplay').innerText}\n`;
