@@ -550,231 +550,95 @@
                 
                 // Unificar lista remota en el histórico global para auditoría de Setups
                 monthlyRemoteList.forEach(item => {
-                    const idx = allRemoteHistory.findIndex(h => h.date === item.date);
-                    if (idx >= 0) {
-                        allRemoteHistory[idx] = item;
-                    } else {
-                        allRemoteHistory.push(item);
-                    }
+                    const exists = allRemoteHistory.some(h => h.id === item.id);
+                    if (!exists) allRemoteHistory.push(item);
                 });
             }
-            
-            // Garantizar que la fecha actual seleccionada esté también en el histórico global
-            const currentIdx = allRemoteHistory.findIndex(h => h.date === appState.date);
-            if (currentIdx >= 0) {
-                allRemoteHistory[currentIdx] = appState;
-            } else {
-                allRemoteHistory.push(appState);
-            }
-
-            document.getElementById('selectedMonthTitle').innerText = selectedMonth;
         }
 
-        async function saveData() {
-            if (isFetchingRemote || !appState.date) return;
-
+        async function syncWithCloud() {
             setCloudStatus('syncing');
             const localKey = `swiss_kam_checklist_${appState.date}`;
             localStorage.setItem(localKey, JSON.stringify(appState));
 
-            // Actualizar arreglo del mes y global
-            let updatedMonth = false;
-            for (let i = 0; i < monthlyRemoteList.length; i++) {
-                if (monthlyRemoteList[i].date === appState.date) {
-                    monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
-                    updatedMonth = true;
-                    break;
-                }
-            }
-            if (!updatedMonth && appState.date.indexOf(selectedMonth) === 0) {
-                monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
-            }
-
-            let updatedHistory = false;
-            for (let i = 0; i < allRemoteHistory.length; i++) {
-                if (allRemoteHistory[i].date === appState.date) {
-                    allRemoteHistory[i] = JSON.parse(JSON.stringify(appState));
-                    updatedHistory = true;
-                    break;
-                }
-            }
-            if (!updatedHistory) {
-                allRemoteHistory.push(JSON.parse(JSON.stringify(appState)));
-            }
-
-            updateMetrics();
-            await updateCommissions();
-            renderSetupPipelineTable();
-            renderMonthlySalesTable();
-
             try {
-                await fetch(SCRIPT_URL, {
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
                         action: 'saveData',
                         date: appState.date,
-                        payload: appState
+                        payload: JSON.stringify(appState)
                     })
                 });
-                setCloudStatus('saved');
+
+                if (response.ok) {
+                    setCloudStatus('saved');
+                    await fetchMonthlyData();
+                    renderSetupPipelineTable();
+                    renderMonthlySalesTable();
+                    await updateCommissions();
+                } else {
+                    setCloudStatus('error');
+                }
             } catch (err) {
-                console.error('Error al guardar:', err);
+                console.error('Error al guardar en Apps Script:', err);
                 setCloudStatus('error');
             }
         }
 
-        function getMonthlyAggregates() {
-            let totalMonthlySalesAmount = 0;
-            let totalMonthlySalesCount = 0;
-            let totalMonthlyActivations = 0;
-            let totalMonthlyUpsells = 0;
-            let allMonthlySalesList = [];
-
-            monthlyRemoteList.forEach(dayData => {
-                if (dayData && dayData.salesList) {
-                    dayData.salesList.forEach(sale => {
-                        if (sale.type === 'activation' || sale.type === 'upsell') {
-                            totalMonthlySalesAmount += parseFloat(sale.amount || 0);
-                            totalMonthlySalesCount++;
-                            if (sale.type === 'activation') totalMonthlyActivations++;
-                            if (sale.type === 'upsell') totalMonthlyUpsells++;
-                            allMonthlySalesList.push(sale);
-                        }
-                    });
-                }
-            });
-
-            // Búsqueda GLOBAL del Pipeline de Setup (Sin importar el mes de origen)
-            let setupPipelineList = [];
-            allRemoteHistory.forEach(dayData => {
-                if (dayData && dayData.salesList) {
-                    dayData.salesList.forEach(sale => {
-                        if (sale.type === 'setup' || sale.type === 'upsell_setup') {
-                            setupPipelineList.push(sale);
-                        }
-                    });
-                }
-            });
-
-            allMonthlySalesList.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-            setupPipelineList.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-            return {
-                amount: totalMonthlySalesAmount,
-                count: totalMonthlySalesCount,
-                activations: totalMonthlyActivations,
-                upsells: totalMonthlyUpsells,
-                salesList: allMonthlySalesList,
-                setupPipeline: setupPipelineList
-            };
-        }
-
-        function calculateBlockScore(block) {
-            let earned = 0;
-            let total = 0;
-            block.tasks.forEach(task => {
-                total += task.pts;
-                if (appState.completedTasks && appState.completedTasks[task.id]) {
-                    earned += task.pts;
-                }
-            });
-            return total > 0 ? Math.round((earned / total) * 100) : 0;
-        }
-
         function toggleTask(taskId) {
-            if (!appState.completedTasks) appState.completedTasks = {};
             appState.completedTasks[taskId] = !appState.completedTasks[taskId];
-            renderBlocks();
-            saveData();
-        }
-
-        function updateMetrics() {
-            let totalTasksCount = 0;
-            let completedTasksCount = 0;
-            let weightedScoreSum = 0;
-
-            blocksData.forEach(block => {
-                const bScore = calculateBlockScore(block);
-                weightedScoreSum += (bScore * (block.weight / 100));
-
-                block.tasks.forEach(task => {
-                    totalTasksCount++;
-                    if (appState.completedTasks && appState.completedTasks[task.id]) {
-                        completedTasksCount++;
-                    }
-                });
-            });
-
-            const overallScoreVal = Math.round(weightedScoreSum);
-            
-            document.getElementById('overallScore').innerText = `${overallScoreVal}%`;
-            document.getElementById('overallProgressBar').style.width = `${overallScoreVal}%`;
-
-            const statusElem = document.getElementById('overallStatus');
-            if (overallScoreVal >= 85) {
-                statusElem.innerText = 'Excelente';
-                statusElem.className = 'text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30';
-            } else if (overallScoreVal >= 50) {
-                statusElem.innerText = 'En Progreso';
-                statusElem.className = 'text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30';
-            } else {
-                statusElem.innerText = 'Pendiente';
-                statusElem.className = 'text-xs px-2 py-1 rounded bg-slate-700 text-slate-300';
-            }
-
-            document.getElementById('tasksRatio').innerText = `${completedTasksCount}/${totalTasksCount}`;
+            updateMetrics();
+            syncWithCloud();
         }
 
         function renderBlocks() {
             const container = document.getElementById('blocksContainer');
-            if (!container) return;
             container.innerHTML = '';
 
             blocksData.forEach(block => {
-                const score = calculateBlockScore(block);
-                
-                const blockCard = document.createElement('div');
-                blockCard.className = 'bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm hover:border-slate-600 transition';
+                let totalPts = block.tasks.reduce((acc, t) => acc + t.pts, 0);
+                let earnedPts = block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + t.pts : acc, 0);
+                let percent = Math.round((earnedPts / totalPts) * 100) || 0;
 
-                let tasksHtml = '';
-                block.tasks.forEach(task => {
-                    const isChecked = !!(appState.completedTasks && appState.completedTasks[task.id]);
-                    tasksHtml += `
-                        <label class="flex items-start space-x-3 p-3 bg-slate-900/60 hover:bg-slate-900/90 rounded-lg cursor-pointer transition border border-slate-700/50 group">
-                            <input type="checkbox" onchange="toggleTask('${task.id}')" ${isChecked ? 'checked' : ''} class="mt-1 h-4 w-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 focus:ring-offset-slate-900 cursor-pointer">
+                const blockEl = document.createElement('div');
+                blockEl.className = 'bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm';
+
+                let tasksHtml = block.tasks.map(t => {
+                    const isChecked = !!appState.completedTasks[t.id];
+                    return `
+                        <label class="flex items-start space-x-3 p-2.5 rounded-lg hover:bg-slate-700/40 transition cursor-pointer ${isChecked ? 'bg-slate-900/40' : ''}">
+                            <input type="checkbox" onchange="toggleTask('${t.id}')" ${isChecked ? 'checked' : ''} class="mt-1 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-700 border-slate-600 cursor-pointer">
                             <div class="flex-1">
-                                <span class="text-sm text-slate-200 group-hover:text-white transition ${isChecked ? 'line-through text-slate-500' : ''}">${task.text}</span>
+                                <span class="text-sm ${isChecked ? 'line-through text-slate-500' : 'text-slate-200'}">${t.text}</span>
                             </div>
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${task.pts} pts</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded ${isChecked ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${t.pts} pts</span>
                         </label>
                     `;
-                });
+                }).join('');
 
-                blockCard.innerHTML = `
+                blockEl.innerHTML = `
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
-                        <div>
-                            <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs px-2.5 py-1 rounded-full border font-bold ${block.badgeColor}">${block.badge}</span>
+                            <div>
                                 <h3 class="text-base font-bold text-white">${block.title}</h3>
-                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold border ${block.badgeColor}">${block.badge}</span>
-                            </div>
-                            <div class="text-xs text-slate-400 mt-0.5">
-                                <i class="fa-regular fa-clock mr-1"></i>${block.time} &bull; <span class="text-slate-400 font-medium">Peso: ${block.weight}% del total</span>
+                                <p class="text-xs text-slate-400"><i class="fa-regular fa-clock mr-1"></i>${block.time} &bull; Peso: ${block.weight}% del total</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <span class="text-sm font-extrabold text-emerald-400">${score}%</span>
-                            <div class="w-20 bg-slate-700 h-2 rounded-full overflow-hidden">
-                                <div class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: ${score}%"></div>
+                            <span class="text-sm font-extrabold ${percent === 100 ? 'text-emerald-400' : 'text-slate-300'}">${percent}%</span>
+                            <div class="w-24 bg-slate-700 h-2 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: ${percent}%"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="space-y-1">
                         ${tasksHtml}
                     </div>
                 `;
-                container.appendChild(blockCard);
+                container.appendChild(blockEl);
             });
         }
 
@@ -784,423 +648,418 @@
             const amountInput = document.getElementById('saleAmount');
             const typeInput = document.getElementById('saleType');
 
-            const newSale = {
+            const sale = {
                 id: 'sale_' + Date.now(),
                 client: clientInput.value.trim(),
-                amount: parseFloat(amountInput.value),
+                amount: parseFloat(amountInput.value) || 0,
                 type: typeInput.value,
                 date: appState.date
             };
 
-            if (!appState.salesList) appState.salesList = [];
-            appState.salesList.push(newSale);
-
+            appState.salesList.push(sale);
             clientInput.value = '';
             amountInput.value = '';
 
             renderSales();
-            saveData();
+            renderSetupPipelineTable();
+            renderMonthlySalesTable();
+            updateCommissions();
+            syncWithCloud();
         }
 
-        function deleteSale(saleId) {
-            if (!appState.salesList) return;
-            appState.salesList = appState.salesList.filter(s => s.id !== saleId);
+        function deleteSale(id) {
+            appState.salesList = appState.salesList.filter(s => s.id !== id);
             renderSales();
-            saveData();
-        }
-
-        // Marcar deal de Setup a Activación oficial (Soporta cambios trans-mensuales)
-        async function convertSetupToActivation(saleId, originalDate) {
-            let itemToConvert = null;
-
-            // 1. Si el registro pertenece a la fecha activa actual
-            if (originalDate === appState.date) {
-                itemToConvert = appState.salesList.find(s => s.id === saleId);
-                if (itemToConvert) {
-                    itemToConvert.type = (itemToConvert.type === 'upsell_setup') ? 'upsell' : 'activation';
-                    renderSales();
-                    saveData();
-                    return;
-                }
-            }
-
-            // 2. Si el registro viene de una fecha histórica previa (otro mes o día pasado)
-            if (confirm(`¿Confirmar Go-Live de este proyecto hoy (${appState.date})?\nSe moverá desde su fecha original (${originalDate}) al día actual para ser contabilizado en las comisiones de hoy.`)) {
-                
-                // Buscar y remover del día de origen
-                try {
-                    setCloudStatus('syncing');
-                    const origRes = await fetch(`${SCRIPT_URL}?action=getData&date=${originalDate}`);
-                    if (origRes.ok) {
-                        const origData = await origRes.json();
-                        if (origData && origData.salesList) {
-                            const foundIdx = origData.salesList.findIndex(s => s.id === saleId);
-                            if (foundIdx >= 0) {
-                                itemToConvert = origData.salesList[foundIdx];
-                                // Eliminar del día anterior
-                                origData.salesList.splice(foundIdx, 1);
-                                
-                                // Guardar cambios en el día de origen en Apps Script
-                                fetch(SCRIPT_URL, {
-                                    method: 'POST',
-                                    mode: 'no-cors',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ action: 'saveData', date: originalDate, payload: origData })
-                                });
-                            }
-                        }
-                    }
-                } catch(e) {
-                    console.error("Error recuperando origen del Setup:", e);
-                }
-
-                // Fallback local si la llamada no retornó el objeto
-                if (!itemToConvert) {
-                    allRemoteHistory.forEach(day => {
-                        if (day.salesList) {
-                            const idx = day.salesList.findIndex(s => s.id === saleId);
-                            if (idx >= 0) {
-                                itemToConvert = day.salesList.splice(idx, 1)[0];
-                            }
-                        }
-                    });
-                }
-
-                if (itemToConvert) {
-                    // Trasladar la venta al día activo con su nuevo estado
-                    itemToConvert.type = (itemToConvert.type === 'upsell_setup') ? 'upsell' : 'activation';
-                    itemToConvert.date = appState.date;
-                    
-                    if (!appState.salesList) appState.salesList = [];
-                    appState.salesList.push(itemToConvert);
-
-                    renderSales();
-                    saveData();
-                }
-            }
+            renderSetupPipelineTable();
+            renderMonthlySalesTable();
+            updateCommissions();
+            syncWithCloud();
         }
 
         function renderSales() {
             const tbody = document.getElementById('salesTableBody');
             const badge = document.getElementById('salesSummaryBadge');
-            if (!tbody) return;
-
             tbody.innerHTML = '';
-            let dayTotal = 0;
+
+            let dailyTotal = 0;
 
             if (!appState.salesList || appState.salesList.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay registros en esta fecha (${appState.date}). Añade uno arriba.
-                        </td>
-                    </tr>
-                `;
-            } else {
-                appState.salesList.forEach(sale => {
-                    if (sale.type === 'activation' || sale.type === 'upsell') {
-                        dayTotal += sale.amount;
-                    }
-                    
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-slate-800/50 transition text-xs';
-                    
-                    let badgeType = '';
-                    if (sale.type === 'setup') {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>Hotel en Setup</span>';
-                    } else if (sale.type === 'upsell_setup') {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"><i class="fa-solid fa-gears mr-1"></i>Upsell en Setup</span>';
-                    } else if (sale.type === 'activation') {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activación</span>';
-                    } else {
-                        badgeType = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"><i class="fa-solid fa-bolt mr-1"></i>Upsell Activo</span>';
-                    }
-
-                    row.innerHTML = `
-                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
-                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
-                        <td class="py-2.5 px-3">${badgeType}</td>
-                        <td class="py-2.5 px-3 text-right font-bold text-emerald-400">$${sale.amount.toFixed(2)}</td>
-                        <td class="py-2.5 px-3 text-center">
-                            <button onclick="deleteSale('${sale.id}')" class="text-slate-500 hover:text-rose-400 transition">
-                                <i class="fa-solid fa-trash text-xs"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">No hay negocios registrados para esta fecha.</td></tr>`;
+                badge.innerText = '$0.00 USD Hoy';
+                return;
             }
 
-            if (badge) badge.innerText = `$${dayTotal.toFixed(2)} USD Cobrables Hoy`;
+            appState.salesList.forEach(sale => {
+                if (sale.type === 'activation' || sale.type === 'upsell') {
+                    dailyTotal += sale.amount;
+                }
+
+                let typeLabel = '';
+                let typeBg = '';
+                if (sale.type === 'setup') {
+                    typeLabel = 'Nuevo Hotel (En Setup)';
+                    typeBg = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+                } else if (sale.type === 'upsell_setup') {
+                    typeLabel = 'Upsell (En Setup)';
+                    typeBg = 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+                } else if (sale.type === 'activation') {
+                    typeLabel = 'Activación Directa (Go-Live)';
+                    typeBg = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+                } else if (sale.type === 'upsell') {
+                    typeLabel = 'Upsell Directo';
+                    typeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30 transition';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-xs text-slate-400 font-mono">${sale.date}</td>
+                    <td class="py-2.5 px-3 text-xs text-slate-200 font-bold">${sale.client}</td>
+                    <td class="py-2.5 px-3 text-xs"><span class="px-2 py-0.5 rounded-full border text-[11px] ${typeBg}">${typeLabel}</span></td>
+                    <td class="py-2.5 px-3 text-xs font-bold text-right text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                    <td class="py-2.5 px-3 text-xs text-center">
+                        <button onclick="deleteSale('${sale.id}')" class="text-slate-500 hover:text-rose-400 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            badge.innerText = `$${dailyTotal.toFixed(2)} USD Cobrado Hoy`;
         }
 
+        // Renderiza el Pipeline Global de Cuentas en Setup (reúne locales + remotas)
         function renderSetupPipelineTable() {
             const tbody = document.getElementById('setupPipelineTableBody');
             const badge = document.getElementById('setupPipelineBadge');
-            const kpi = document.getElementById('setupPipelineCount');
-            if (!tbody) return;
-
-            const monthlyData = getMonthlyAggregates();
-            const setupList = monthlyData.setupPipeline;
+            const globalCountDisplay = document.getElementById('setupPipelineCount');
             tbody.innerHTML = '';
 
-            if (kpi) kpi.innerText = setupList.length;
-            if (badge) badge.innerText = `${setupList.length} Deals en Setup Acumulados`;
+            let setupDealsMap = new Map();
 
-            if (setupList.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay cuentas ni upsells pendientes en Setup.
-                        </td>
-                    </tr>
-                `;
-            } else {
-                setupList.forEach(sale => {
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-slate-800/50 transition text-xs';
-                    
-                    const dealTag = (sale.type === 'upsell_setup')
-                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">Upsell</span>'
-                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">Hotel PMS</span>';
+            // 1. Agregar de la historia remota
+            allRemoteHistory.forEach(item => {
+                if (item.type === 'setup' || item.type === 'upsell_setup') {
+                    setupDealsMap.set(item.id, item);
+                }
+            });
 
-                    row.innerHTML = `
-                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
-                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
-                        <td class="py-2.5 px-3">${dealTag}</td>
-                        <td class="py-2.5 px-3 text-right font-bold text-slate-300">$${sale.amount.toFixed(2)} USD</td>
-                        <td class="py-2.5 px-3 text-center">
-                            <button onclick="convertSetupToActivation('${sale.id}', '${sale.date}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition text-[11px] border border-purple-400 flex items-center gap-1 mx-auto">
-                                <i class="fa-solid fa-rocket"></i> Activar Hoy (${appState.date})
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
+            // 2. Agregar del día local actual
+            appState.salesList.forEach(item => {
+                if (item.type === 'setup' || item.type === 'upsell_setup') {
+                    setupDealsMap.set(item.id, item);
+                }
+            });
+
+            const setupDeals = Array.from(setupDealsMap.values());
+
+            if (globalCountDisplay) globalCountDisplay.innerText = setupDeals.length;
+
+            if (setupDeals.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">No hay proyectos actualmente en fase de Setup / Implementación.</td></tr>`;
+                badge.innerText = '0 Deals en Setup';
+                return;
             }
+
+            badge.innerText = `${setupDeals.length} Deals en Setup`;
+
+            setupDeals.forEach(deal => {
+                let typeLabel = deal.type === 'setup' ? 'Nuevo Hotel (En Setup)' : 'Upsell (En Setup)';
+                let typeBadge = deal.type === 'setup' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' : 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30 transition';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-xs text-slate-400 font-mono">${deal.date}</td>
+                    <td class="py-2.5 px-3 text-xs text-slate-200 font-bold">${deal.client}</td>
+                    <td class="py-2.5 px-3 text-xs"><span class="px-2 py-0.5 rounded-full border text-[11px] ${typeBadge}">${typeLabel}</span></td>
+                    <td class="py-2.5 px-3 text-xs font-bold text-right text-emerald-400">$${deal.amount.toFixed(2)}</td>
+                    <td class="py-2.5 px-3 text-xs text-center">
+                        <button onclick="activateSetupDeal('${deal.id}')" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-[11px] transition shadow flex items-center gap-1 mx-auto">
+                            <i class="fa-solid fa-rocket"></i> Go-Live Hoy (${appState.date})
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
+        // Transforma un Setup en Activación/Upsell directo asociado al día seleccionado en la UI
+        async function activateSetupDeal(dealId) {
+            // Buscar si está local
+            let deal = appState.salesList.find(s => s.id === dealId);
+            
+            if (deal) {
+                deal.type = (deal.type === 'setup') ? 'activation' : 'upsell';
+                deal.date = appState.date; // Se mueve a la fecha de activación real
+            } else {
+                // Si no estaba en el estado local, lo buscamos en el histórico remoto
+                let remoteDeal = allRemoteHistory.find(h => h.id === dealId);
+                if (remoteDeal) {
+                    const activatedDeal = {
+                        id: remoteDeal.id,
+                        client: remoteDeal.client,
+                        amount: remoteDeal.amount,
+                        type: remoteDeal.type === 'setup' ? 'activation' : 'upsell',
+                        date: appState.date
+                    };
+                    appState.salesList.push(activatedDeal);
+                }
+            }
+
+            renderSales();
+            renderSetupPipelineTable();
+            renderMonthlySalesTable();
+            await updateCommissions();
+            syncWithCloud();
+        }
+
+        // Renderiza el consolidado oficial de ventas/activaciones del mes seleccionado
         function renderMonthlySalesTable() {
             const tbody = document.getElementById('monthlySalesTableBody');
+            const titleMonth = document.getElementById('selectedMonthTitle');
             const badge = document.getElementById('monthlySalesSummaryBadge');
-            if (!tbody) return;
-
-            const monthlyData = getMonthlyAggregates();
+            
+            if (titleMonth) titleMonth.innerText = selectedMonth;
             tbody.innerHTML = '';
 
-            if (monthlyData.salesList.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="py-4 text-center text-xs text-slate-500 italic">
-                            Aún no hay activaciones o upsells oficiales para el mes de ${selectedMonth}.
-                        </td>
-                    </tr>
-                `;
-            } else {
-                monthlyData.salesList.forEach(sale => {
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-slate-800/50 transition text-xs';
-                    
-                    const badgeType = sale.type === 'activation' 
-                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">Activación</span>'
-                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Upsell</span>';
+            let monthlySalesMap = new Map();
 
-                    row.innerHTML = `
-                        <td class="py-2.5 px-3 text-slate-400 font-mono">${sale.date}</td>
-                        <td class="py-2.5 px-3 font-semibold text-white">${sale.client}</td>
-                        <td class="py-2.5 px-3">${badgeType}</td>
-                        <td class="py-2.5 px-3 text-right font-bold text-emerald-400">$${sale.amount.toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(row);
+            // Cargar de remotos del mes
+            monthlyRemoteList.forEach(item => {
+                if (item.type === 'activation' || item.type === 'upsell') {
+                    monthlySalesMap.set(item.id, item);
+                }
+            });
+
+            // Sobrescribir/incluir de la app actual si coinciden con el mes seleccionado
+            if (appState.date.substring(0, 7) === selectedMonth) {
+                appState.salesList.forEach(item => {
+                    if (item.type === 'activation' || item.type === 'upsell') {
+                        monthlySalesMap.set(item.id, item);
+                    }
                 });
             }
 
-            if (badge) badge.innerText = `$${monthlyData.amount.toFixed(2)} USD (${selectedMonth})`;
+            const monthList = Array.from(monthlySalesMap.values());
+            let totalMonthAmount = monthList.reduce((acc, s) => acc + s.amount, 0);
+
+            if (monthList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-xs text-slate-500">No existen activaciones u upsells confirmados para ${selectedMonth}.</td></tr>`;
+                badge.innerText = '$0.00 USD Acumulado';
+                return;
+            }
+
+            badge.innerText = `$${totalMonthAmount.toFixed(2)} USD Acumulado`;
+
+            monthList.forEach(sale => {
+                let typeBadge = sale.type === 'activation' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                let typeLabel = sale.type === 'activation' ? 'Activación PMS' : 'Upsell Módulo';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30 transition';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-xs text-slate-400 font-mono">${sale.date}</td>
+                    <td class="py-2.5 px-3 text-xs text-slate-200 font-bold">${sale.client}</td>
+                    <td class="py-2.5 px-3 text-xs"><span class="px-2 py-0.5 rounded-full border text-[11px] ${typeBadge}">${typeLabel}</span></td>
+                    <td class="py-2.5 px-3 text-xs font-bold text-right text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateMetrics() {
+            let totalTasksCount = 0;
+            let completedTasksCount = 0;
+            let totalWeightedScore = 0;
+
+            blocksData.forEach(block => {
+                let blockTotalPts = block.tasks.reduce((acc, t) => acc + t.pts, 0);
+                let blockEarnedPts = block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + t.pts : acc, 0);
+                let blockPercent = (blockEarnedPts / blockTotalPts) || 0;
+
+                totalTasksCount += block.tasks.length;
+                completedTasksCount += block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + 1 : acc, 0);
+
+                totalWeightedScore += blockPercent * block.weight;
+            });
+
+            let finalScore = Math.round(totalWeightedScore);
+
+            const scoreEl = document.getElementById('overallScore');
+            const statusEl = document.getElementById('overallStatus');
+            const progressEl = document.getElementById('overallProgressBar');
+            const tasksRatioEl = document.getElementById('tasksRatio');
+
+            scoreEl.innerText = `${finalScore}%`;
+            progressEl.style.width = `${finalScore}%`;
+            tasksRatioEl.innerText = `${completedTasksCount}/${totalTasksCount}`;
+
+            if (finalScore >= 90) {
+                statusEl.innerText = 'Excelente';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold';
+            } else if (finalScore >= 70) {
+                statusEl.innerText = 'Bueno';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 font-bold';
+            } else if (finalScore >= 40) {
+                statusEl.innerText = 'En Proceso';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-300 font-bold';
+            } else {
+                statusEl.innerText = 'Pendiente';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-slate-700 text-slate-300';
+            }
         }
 
         async function updateCommissions() {
-            const baseFixed = 1066.00;
-            const recurrentHotels = globalSettings.recurrentHotels || 50;
-            const recurrentIncome = recurrentHotels * 12.00;
+            let monthlySalesMap = new Map();
 
-            const monthlyData = getMonthlyAggregates();
-            const oneTimeIncome = monthlyData.amount;
-            const activationCount = monthlyData.activations;
-            const upsellCount = monthlyData.upsells;
+            monthlyRemoteList.forEach(item => {
+                if (item.type === 'activation' || item.type === 'upsell') {
+                    monthlySalesMap.set(item.id, item);
+                }
+            });
 
-            const currentMonthBonusUnlocked = activationCount >= 4;
+            if (appState.date.substring(0, 7) === selectedMonth) {
+                appState.salesList.forEach(item => {
+                    if (item.type === 'activation' || item.type === 'upsell') {
+                        monthlySalesMap.set(item.id, item);
+                    }
+                });
+            }
 
-            let previousMonthBonusEarned = 0.00;
-            
-            const [year, month] = selectedMonth.split('-').map(Number);
-            const prevDate = new Date(year, month - 2, 1);
-            const prevMonthStr = prevDate.toISOString().substring(0, 7);
+            const monthList = Array.from(monthlySalesMap.values());
+
+            let monthlyActivations = monthList.filter(s => s.type === 'activation').length;
+            let monthlyUpsells = monthList.filter(s => s.type === 'upsell').length;
+            let oneTimeCommissionsSum = monthList.reduce((acc, s) => acc + s.amount, 0);
+
+            document.getElementById('activationsCount').innerText = monthlyActivations;
+            document.getElementById('upsellsCount').innerText = monthlyUpsells;
+
+            // Verificación Bono $200
+            const noteEl = document.getElementById('activationsProgressNote');
+            if (monthlyActivations >= 4) {
+                noteEl.innerText = '¡Meta de 4 Lograda! ($200 cobrados el prox mes)';
+                noteEl.className = 'text-xs text-emerald-400 font-bold mt-2';
+            } else {
+                noteEl.innerText = `Faltan ${4 - monthlyActivations} activaciones para bono $200`;
+                noteEl.className = 'text-xs text-purple-300/80 mt-2';
+            }
+
+            // Calculamos Bono de Activaciones del Mes Previo
+            let previousMonthBonus = 0;
+            let prevYear = parseInt(selectedMonth.split('-')[0]);
+            let prevMonthNum = parseInt(selectedMonth.split('-')[1]) - 1;
+            if (prevMonthNum === 0) {
+                prevMonthNum = 12;
+                prevYear -= 1;
+            }
+            let prevMonthStr = `${prevYear}-${prevMonthNum.toString().padStart(2, '0')}`;
 
             try {
                 const prevRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${prevMonthStr}`);
                 if (prevRes.ok) {
                     const prevData = await prevRes.json();
-                    const prevList = prevData.monthlyData || [];
-                    let prevActivations = 0;
-
-                    prevList.forEach(day => {
-                        if (day.salesList) {
-                            day.salesList.forEach(sale => {
-                                if (sale.type === 'activation') prevActivations++;
-                            });
-                        }
-                    });
-
-                    if (prevActivations >= 4) {
-                        previousMonthBonusEarned = 200.00;
+                    let prevList = prevData.monthlyData || [];
+                    let prevActivationsCount = prevList.filter(s => s.type === 'activation').length;
+                    if (prevActivationsCount >= 4) {
+                        previousMonthBonus = 200;
                     }
                 }
             } catch(e) {
-                console.warn('No se pudo verificar el bono del mes anterior:', e);
+                console.warn('Error obteniendo bono mes anterior:', e);
             }
 
-            const totalMonthlyEst = baseFixed + recurrentIncome + oneTimeIncome + previousMonthBonusEarned;
-            const effectiveHourlyRate = totalMonthlyEst / 160.0;
-
-            document.getElementById('activationsCount').innerText = activationCount;
-            document.getElementById('upsellsCount').innerText = upsellCount;
-
-            const actNote = document.getElementById('activationsProgressNote');
-            if (currentMonthBonusUnlocked) {
-                actNote.innerText = '¡Bono $200 LOGRADO! (Se cobra el mes siguiente)';
-                actNote.className = 'text-xs text-emerald-400 font-bold mt-2';
-            } else {
-                actNote.innerText = `Faltan ${4 - activationCount} activaciones para bono del prox. mes`;
-                actNote.className = 'text-xs text-purple-300/80 mt-2';
-            }
+            // Actualización UI Calculadora
+            const recurrentHotels = globalSettings.recurrentHotels || 0;
+            const recurrentIncome = recurrentHotels * 12;
 
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
-            document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeIncome.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${monthlyData.count} cobros en ${selectedMonth}`;
-
-            document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonusEarned.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeCommissionsSum.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${monthList.length} cobros en ${selectedMonth}`;
             
-            const bonusNote = document.getElementById('activationBonusNote');
-            if (previousMonthBonusEarned > 0) {
-                bonusNote.innerText = `Bono cobrado por logro de ${prevMonthStr}`;
-                bonusNote.className = 'text-[10px] text-emerald-400 font-semibold';
-            } else {
-                bonusNote.innerText = `Sin bono de ${prevMonthStr} (<4 activaciones)`;
-                bonusNote.className = 'text-[10px] text-slate-500';
-            }
+            document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+            document.getElementById('activationBonusNote').innerText = previousMonthBonus > 0 ? `Ganado en ${prevMonthStr}` : `No alcanzado en ${prevMonthStr}`;
 
-            document.getElementById('totalMonthlyIncomeDisplay').innerHTML = `$${totalMonthlyEst.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('hourlyRateDisplay').innerText = `$${effectiveHourlyRate.toFixed(2)} / hr`;
+            const totalFixedBase = 1066.00; // $1016 + $50
+            const totalMonthlyIncome = totalFixedBase + recurrentIncome + oneTimeCommissionsSum + previousMonthBonus;
 
+            document.getElementById('totalMonthlyIncomeDisplay').innerHTML = `$${totalMonthlyIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="text-xs text-slate-500 font-normal">USD</span>`;
+
+            // Cálculo tarifa por hora (160 horas laborales al mes)
+            const hourlyRate = totalMonthlyIncome / 160;
+            document.getElementById('hourlyRateDisplay').innerText = `$${hourlyRate.toFixed(2)} / hr`;
+
+            // Progreso hacia Meta ($4,583.33 USD)
             const targetMonthly = 4583.33;
-            const targetPct = Math.min(Math.round((totalMonthlyEst / targetMonthly) * 100), 100);
-            document.getElementById('targetPercentDisplay').innerText = `${targetPct}%`;
-            document.getElementById('targetProgressBar').style.width = `${targetPct}%`;
+            const targetPercent = Math.min(Math.round((totalMonthlyIncome / targetMonthly) * 100), 100);
+
+            document.getElementById('targetPercentDisplay').innerText = `${targetPercent}%`;
+            document.getElementById('targetProgressBar').style.width = `${targetPercent}%`;
         }
 
         function resetDay() {
-            if (confirm(`¿Estás seguro de reiniciar las tareas y ventas registradas el día ${appState.date}?`)) {
+            if (confirm('¿Desea reiniciar las tareas y negocios registrados para este día?')) {
                 appState.completedTasks = {};
                 appState.salesList = [];
-                saveData();
                 renderBlocks();
                 renderSales();
                 renderSetupPipelineTable();
                 renderMonthlySalesTable();
+                updateMetrics();
+                updateCommissions();
+                syncWithCloud();
             }
-        }
-
-        function downloadExcel() {
-            let wb = XLSX.utils.book_new();
-            const monthlyData = getMonthlyAggregates();
-
-            let monthlySummaryData = [
-                ["MES EVALUADO", selectedMonth],
-                ["SISTEMA", "Swiss Hotelier KAM Executive Hub"],
-                [""],
-                ["MÉTRICA / INGRESO", "VALOR"],
-                ["Base Fija (Salario + Internet)", "$1,066.00 USD"],
-                ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
-                ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
-                ["Nuevas Activaciones Logradas Este Mes", monthlyData.activations],
-                ["Deals en Setup Acumulados (Global)", monthlyData.setupPipeline.length],
-                ["Upsells / Módulos Extras Sold Este Mes", monthlyData.upsells],
-                ["Bono Activaciones Cobrado (Mes Previo)", document.getElementById('activationBonusDisplay').innerText],
-                ["------------------------------------", "--------------------"],
-                ["TOTAL INGRESOS ESTIMADO MES", document.getElementById('totalMonthlyIncomeDisplay').innerText],
-                ["TARIFA EFECTIVA POR HORA", document.getElementById('hourlyRateDisplay').innerText]
-            ];
-            let wsMonthly = XLSX.utils.aoa_to_sheet(monthlySummaryData);
-            XLSX.utils.book_append_sheet(wb, wsMonthly, `Resumen ${selectedMonth}`);
-
-            let salesMonthlyData = [["Fecha Registro", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
-            if (monthlyData.salesList.length > 0) {
-                monthlyData.salesList.forEach(s => {
-                    salesMonthlyData.push([s.date, s.client, s.type, s.amount]);
-                });
-            } else {
-                salesMonthlyData.push(["-", "Sin cierres este mes", "-", 0]);
-            }
-            let wsSalesMonthly = XLSX.utils.aoa_to_sheet(salesMonthlyData);
-            XLSX.utils.book_append_sheet(wb, wsSalesMonthly, "Consolidado Ventas Mes");
-
-            let checklistData = [["Bloque", "Tarea", "Puntos", "Estado"]];
-            blocksData.forEach(b => {
-                b.tasks.forEach(t => {
-                    checklistData.push([
-                        b.title,
-                        t.text,
-                        t.pts,
-                        (appState.completedTasks && appState.completedTasks[t.id]) ? "COMPLETADO" : "PENDIENTE"
-                    ]);
-                });
-            });
-            let wsChecklist = XLSX.utils.aoa_to_sheet(checklistData);
-            XLSX.utils.book_append_sheet(wb, wsChecklist, `Checklist (${appState.date})`);
-
-            XLSX.writeFile(wb, `Swiss_Hotelier_Reporte_Mensual_${selectedMonth}.xlsx`);
         }
 
         function generateReport() {
             const modal = document.getElementById('reportModal');
-            const dateElem = document.getElementById('modalReportDate');
-            const contentElem = document.getElementById('modalReportContent');
+            const dateDisplay = document.getElementById('modalReportDate');
+            const content = document.getElementById('modalReportContent');
 
-            dateElem.innerText = `Evaluación Ejecutiva Mes: ${selectedMonth}`;
+            dateDisplay.innerText = `Fecha de Informe: ${appState.date}`;
 
-            const monthlyData = getMonthlyAggregates();
+            let totalTasks = 0;
+            let completedTasks = 0;
+            let blocksSummaryHtml = '';
 
-            contentElem.innerHTML = `
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Activaciones Mes</span>
-                        <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
+            blocksData.forEach(block => {
+                let totalPts = block.tasks.reduce((acc, t) => acc + t.pts, 0);
+                let earnedPts = block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + t.pts : acc, 0);
+                let percent = Math.round((earnedPts / totalPts) * 100) || 0;
+
+                totalTasks += block.tasks.length;
+                completedTasks += block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + 1 : acc, 0);
+
+                blocksSummaryHtml += `
+                    <div class="flex justify-between items-center text-xs border-b border-slate-700/60 py-2">
+                        <span class="text-slate-300 font-semibold">${block.title}</span>
+                        <span class="font-mono font-bold ${percent === 100 ? 'text-emerald-400' : 'text-slate-400'}">${percent}%</span>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Deals en Setup (Global)</span>
-                        <span class="text-2xl font-black text-cyan-400">${monthlyData.setupPipeline.length}</span>
+                `;
+            });
+
+            let dailyCommissions = appState.salesList.reduce((acc, s) => (s.type === 'activation' || s.type === 'upsell') ? acc + s.amount : acc, 0);
+
+            content.innerHTML = `
+                <div class="grid grid-cols-3 gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 text-center">
+                    <div>
+                        <div class="text-[11px] text-slate-400 uppercase">Score Diario</div>
+                        <div class="text-2xl font-black text-emerald-400">${document.getElementById('overallScore').innerText}</div>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Comisiones Mes</span>
-                        <span class="text-xl font-extrabold text-emerald-400">$${monthlyData.amount.toFixed(2)}</span>
+                    <div>
+                        <div class="text-[11px] text-slate-400 uppercase">Tareas</div>
+                        <div class="text-2xl font-black text-blue-400">${completedTasks}/${totalTasks}</div>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Tarifa/Hora</span>
-                        <span class="text-xl font-extrabold text-teal-300">${document.getElementById('hourlyRateDisplay').innerText}</span>
+                    <div>
+                        <div class="text-[11px] text-slate-400 uppercase">Cobrado Hoy</div>
+                        <div class="text-2xl font-black text-amber-400">$${dailyCommissions.toFixed(2)}</div>
                     </div>
                 </div>
 
-                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Desglose Final de Salario Estimado (${selectedMonth})</h4>
-                    <div class="space-y-1.5 text-xs text-slate-300">
-                        <div class="flex justify-between"><span>Base Fija + Internet:</span><span class="font-semibold text-white">$1,066.00 USD</span></div>
-                        <div class="flex justify-between"><span>Hoteles Recurrentes (${globalSettings.recurrentHotels} @ $12):</span><span class="font-semibold text-white">$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD</span></div>
-                        <div class="flex justify-between"><span>Ventas y Upsells del Mes:</span><span class="font-semibold text-emerald-400">$${monthlyData.amount.toFixed(2)} USD</span></div>
-                        <div class="flex justify-between"><span>Bono Activaciones (Cobrado de Mes Previo):</span><span class="font-semibold text-purple-400">${document.getElementById('activationBonusDisplay').innerText}</span></div>
-                        <div class="border-t border-slate-700 pt-2 flex justify-between text-sm font-bold text-emerald-400">
-                            <span>TOTAL MENSUAL ESTIMADO:</span>
-                            <span>${document.getElementById('totalMonthlyIncomeDisplay').innerText}</span>
-                        </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resumen por Bloques</h4>
+                    <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-700/40 space-y-1">
+                        ${blocksSummaryHtml}
                     </div>
                 </div>
             `;
@@ -1213,23 +1072,55 @@
         }
 
         function copyReportToClipboard(e) {
-            const monthlyData = getMonthlyAggregates();
-            let text = `📈 Swiss Hotelier - Reporte Consolidado Mensual (${selectedMonth})\n`;
-            text += `--------------------------------------------------\n`;
-            text += `• Nuevas Activaciones Logradas: ${monthlyData.activations} (Meta: 4 para bono próx. mes)\n`;
-            text += `• Deals Actualmente en Setup: ${monthlyData.setupPipeline.length}\n`;
-            text += `• Módulos / Upsells Vendidos: ${monthlyData.upsells}\n`;
-            text += `• Comisiones One-Time Acumuladas: $${monthlyData.amount.toFixed(2)} USD\n`;
-            text += `• Bono Cobrado (Mes Previo): ${document.getElementById('activationBonusDisplay').innerText}\n`;
-            text += `• Tarifa Efectiva Alcanzada: ${document.getElementById('hourlyRateDisplay').innerText}\n\n`;
-            text += `💵 Proyección Total Salario Mes: ${document.getElementById('totalMonthlyIncomeDisplay').innerText}\n`;
+            let score = document.getElementById('overallScore').innerText;
+            let dailyCommissions = appState.salesList.reduce((acc, s) => (s.type === 'activation' || s.type === 'upsell') ? acc + s.amount : acc, 0);
+
+            let text = `*Swiss Hotelier - Resumen Ejecutivo (${appState.date})*\n`;
+            text += `Score Diario: ${score}\n`;
+            text += `Cobrado Hoy: $${dailyCommissions.toFixed(2)} USD\n\n`;
+            text += `*Desglose por Bloque:*\n`;
+
+            blocksData.forEach(block => {
+                let totalPts = block.tasks.reduce((acc, t) => acc + t.pts, 0);
+                let earnedPts = block.tasks.reduce((acc, t) => appState.completedTasks[t.id] ? acc + t.pts : acc, 0);
+                let percent = Math.round((earnedPts / totalPts) * 100) || 0;
+                text += `- ${block.title}: ${percent}%\n`;
+            });
 
             navigator.clipboard.writeText(text).then(() => {
-                const btn = e.target.closest('button');
-                const orig = btn.innerHTML;
+                const btn = e.currentTarget;
+                const oldHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> ¡Copiado!';
-                setTimeout(() => btn.innerHTML = orig, 2000);
+                setTimeout(() => btn.innerHTML = oldHtml, 2000);
             });
+        }
+
+        function downloadExcel() {
+            if (typeof XLSX === 'undefined') {
+                alert('La librería SheetJS no se ha cargado correctamente.');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+
+            // Hoja 1: Resumen Diario
+            let summaryData = [
+                ["Métrica", "Valor"],
+                ["Fecha", appState.date],
+                ["Score Global Diario", document.getElementById('overallScore').innerText],
+                ["Tareas Completadas", document.getElementById('tasksRatio').innerText],
+                ["Ventas/Comisiones Hoy (USD)", appState.salesList.reduce((acc, s) => (s.type === 'activation' || s.type === 'upsell') ? acc + s.amount : acc, 0)]
+            ];
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Diario");
+
+            // Hoja 2: Negocios del Día
+            let salesHeader = [["ID", "Fecha", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
+            let salesRows = appState.salesList.map(s => [s.id, s.date, s.client, s.type, s.amount]);
+            const wsSales = XLSX.utils.aoa_to_sheet(salesHeader.concat(salesRows));
+            XLSX.utils.book_append_sheet(wb, wsSales, "Negocios Día");
+
+            XLSX.writeFile(wb, `Swiss_Hotelier_Dashboard_${appState.date}.xlsx`);
         }
     </script>
 </body>
