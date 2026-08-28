@@ -72,12 +72,12 @@
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
-                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Pipeline en Setup</div>
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Pipeline en Setup Global</div>
                 <div class="flex items-baseline justify-between">
                     <span id="setupPipelineCount" class="text-3xl font-extrabold text-cyan-400">0</span>
                     <i class="fa-solid fa-gears text-cyan-500/40 text-xl"></i>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Nuevos PMS & Upsells en Setup</p>
+                <p class="text-xs text-slate-400 mt-2">Todos los pendientes de Go-Live</p>
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
@@ -200,7 +200,7 @@
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Estado / Tipo de Negocio</label>
                     <select id="saleType" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none">
                         <option value="setup">Nuevo Hotel -> En Setup (Pendiente Go-Live)</option>
-                        <option value="upsell_setup">Upsell -> En Setup (Pendiente Go-Live)</option>
+                        <option value="upsell_setup">Upsell / Cambio PMS -> En Setup (Pendiente Go-Live)</option>
                         <option value="activation">Activación Nueva (Go-Live Directo Hoy)</option>
                         <option value="upsell">Upsell Directo (Sin Setup / Cobro Hoy)</option>
                     </select>
@@ -230,14 +230,14 @@
             </div>
         </div>
 
-        <!-- Tarjeta de Gestión de Pipeline en Setup (Hoteles y Upsells) -->
+        <!-- Tarjeta de Gestión de Pipeline en Setup Global -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-8 shadow-sm">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-gears text-cyan-400"></i> Deals en Setup (Pendientes de Activación / Go-Live)
+                        <i class="fa-solid fa-gears text-cyan-400"></i> Deals en Setup Acumulados (Pendientes de Go-Live)
                     </h2>
-                    <p class="text-xs text-slate-400">Cuentas nuevas y Upsells en implementación. Al activarlos, se trasladan al día actual para cobro de comisión.</p>
+                    <p class="text-xs text-slate-400">Inventario global de proyectos en implementación. Al activarlos, se mueven a la fecha seleccionada arriba (<span id="activeDateBadge" class="text-cyan-300 font-mono">--</span>) para cobro de comisión.</p>
                 </div>
                 <span id="setupPipelineBadge" class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
                     0 Deals en Setup
@@ -248,7 +248,7 @@
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
-                            <th class="py-2.5 px-3">Fecha de Cierre</th>
+                            <th class="py-2.5 px-3">Fecha Inicio</th>
                             <th class="py-2.5 px-3">Cliente / Hotel</th>
                             <th class="py-2.5 px-3">Tipo de Deal</th>
                             <th class="py-2.5 px-3 text-right">Monto Estimado</th>
@@ -424,6 +424,7 @@
 
         let selectedMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
         let monthlyRemoteList = [];
+        let allRemoteHistory = []; // Almacena todo el histórico cargado para búsqueda global de Setup
         let globalSettings = { recurrentHotels: 50 };
         let isFetchingRemote = false;
 
@@ -436,8 +437,11 @@
             datePicker.value = appState.date;
             monthPicker.value = selectedMonth;
 
+            document.getElementById('activeDateBadge').innerText = appState.date;
+
             datePicker.addEventListener('change', (e) => {
                 appState.date = e.target.value;
+                document.getElementById('activeDateBadge').innerText = appState.date;
                 const newMonth = appState.date.substring(0, 7);
                 
                 if (newMonth !== selectedMonth) {
@@ -543,7 +547,26 @@
             if (monthRes.ok) {
                 const mData = await monthRes.json();
                 monthlyRemoteList = mData.monthlyData || [];
+                
+                // Unificar lista remota en el histórico global para auditoría de Setups
+                monthlyRemoteList.forEach(item => {
+                    const idx = allRemoteHistory.findIndex(h => h.date === item.date);
+                    if (idx >= 0) {
+                        allRemoteHistory[idx] = item;
+                    } else {
+                        allRemoteHistory.push(item);
+                    }
+                });
             }
+            
+            // Garantizar que la fecha actual seleccionada esté también en el histórico global
+            const currentIdx = allRemoteHistory.findIndex(h => h.date === appState.date);
+            if (currentIdx >= 0) {
+                allRemoteHistory[currentIdx] = appState;
+            } else {
+                allRemoteHistory.push(appState);
+            }
+
             document.getElementById('selectedMonthTitle').innerText = selectedMonth;
         }
 
@@ -554,18 +577,29 @@
             const localKey = `swiss_kam_checklist_${appState.date}`;
             localStorage.setItem(localKey, JSON.stringify(appState));
 
-            if (appState.date.indexOf(selectedMonth) === 0) {
-                let updated = false;
-                for (let i = 0; i < monthlyRemoteList.length; i++) {
-                    if (monthlyRemoteList[i].date === appState.date) {
-                        monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
-                        updated = true;
-                        break;
-                    }
+            // Actualizar arreglo del mes y global
+            let updatedMonth = false;
+            for (let i = 0; i < monthlyRemoteList.length; i++) {
+                if (monthlyRemoteList[i].date === appState.date) {
+                    monthlyRemoteList[i] = JSON.parse(JSON.stringify(appState));
+                    updatedMonth = true;
+                    break;
                 }
-                if (!updated) {
-                    monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
+            }
+            if (!updatedMonth && appState.date.indexOf(selectedMonth) === 0) {
+                monthlyRemoteList.push(JSON.parse(JSON.stringify(appState)));
+            }
+
+            let updatedHistory = false;
+            for (let i = 0; i < allRemoteHistory.length; i++) {
+                if (allRemoteHistory[i].date === appState.date) {
+                    allRemoteHistory[i] = JSON.parse(JSON.stringify(appState));
+                    updatedHistory = true;
+                    break;
                 }
+            }
+            if (!updatedHistory) {
+                allRemoteHistory.push(JSON.parse(JSON.stringify(appState)));
             }
 
             updateMetrics();
@@ -597,7 +631,6 @@
             let totalMonthlyActivations = 0;
             let totalMonthlyUpsells = 0;
             let allMonthlySalesList = [];
-            let setupPipelineList = [];
 
             monthlyRemoteList.forEach(dayData => {
                 if (dayData && dayData.salesList) {
@@ -608,7 +641,17 @@
                             if (sale.type === 'activation') totalMonthlyActivations++;
                             if (sale.type === 'upsell') totalMonthlyUpsells++;
                             allMonthlySalesList.push(sale);
-                        } else if (sale.type === 'setup' || sale.type === 'upsell_setup') {
+                        }
+                    });
+                }
+            });
+
+            // Búsqueda GLOBAL del Pipeline de Setup (Sin importar el mes de origen)
+            let setupPipelineList = [];
+            allRemoteHistory.forEach(dayData => {
+                if (dayData && dayData.salesList) {
+                    dayData.salesList.forEach(sale => {
+                        if (sale.type === 'setup' || sale.type === 'upsell_setup') {
                             setupPipelineList.push(sale);
                         }
                     });
@@ -616,6 +659,7 @@
             });
 
             allMonthlySalesList.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            setupPipelineList.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
             return {
                 amount: totalMonthlySalesAmount,
@@ -765,16 +809,74 @@
             saveData();
         }
 
-        // Marcar hotel u Upsell de Setup a Activación oficial
-        function convertSetupToActivation(saleId) {
-            if (!appState.salesList) return;
-            const item = appState.salesList.find(s => s.id === saleId);
-            if (item) {
-                // Si venía de un Setup de Upsell, pasa a Upsell Activo; si venía de un Hotel Setup, pasa a Activación completa.
-                item.type = (item.type === 'upsell_setup') ? 'upsell' : 'activation';
-                item.date = appState.date; // Se registra la fecha del día actual como la oficial de Go-Live
-                renderSales();
-                saveData();
+        // Marcar deal de Setup a Activación oficial (Soporta cambios trans-mensuales)
+        async function convertSetupToActivation(saleId, originalDate) {
+            let itemToConvert = null;
+
+            // 1. Si el registro pertenece a la fecha activa actual
+            if (originalDate === appState.date) {
+                itemToConvert = appState.salesList.find(s => s.id === saleId);
+                if (itemToConvert) {
+                    itemToConvert.type = (itemToConvert.type === 'upsell_setup') ? 'upsell' : 'activation';
+                    renderSales();
+                    saveData();
+                    return;
+                }
+            }
+
+            // 2. Si el registro viene de una fecha histórica previa (otro mes o día pasado)
+            if (confirm(`¿Confirmar Go-Live de este proyecto hoy (${appState.date})?\nSe moverá desde su fecha original (${originalDate}) al día actual para ser contabilizado en las comisiones de hoy.`)) {
+                
+                // Buscar y remover del día de origen
+                try {
+                    setCloudStatus('syncing');
+                    const origRes = await fetch(`${SCRIPT_URL}?action=getData&date=${originalDate}`);
+                    if (origRes.ok) {
+                        const origData = await origRes.json();
+                        if (origData && origData.salesList) {
+                            const foundIdx = origData.salesList.findIndex(s => s.id === saleId);
+                            if (foundIdx >= 0) {
+                                itemToConvert = origData.salesList[foundIdx];
+                                // Eliminar del día anterior
+                                origData.salesList.splice(foundIdx, 1);
+                                
+                                // Guardar cambios en el día de origen en Apps Script
+                                fetch(SCRIPT_URL, {
+                                    method: 'POST',
+                                    mode: 'no-cors',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'saveData', date: originalDate, payload: origData })
+                                });
+                            }
+                        }
+                    }
+                } catch(e) {
+                    console.error("Error recuperando origen del Setup:", e);
+                }
+
+                // Fallback local si la llamada no retornó el objeto
+                if (!itemToConvert) {
+                    allRemoteHistory.forEach(day => {
+                        if (day.salesList) {
+                            const idx = day.salesList.findIndex(s => s.id === saleId);
+                            if (idx >= 0) {
+                                itemToConvert = day.salesList.splice(idx, 1)[0];
+                            }
+                        }
+                    });
+                }
+
+                if (itemToConvert) {
+                    // Trasladar la venta al día activo con su nuevo estado
+                    itemToConvert.type = (itemToConvert.type === 'upsell_setup') ? 'upsell' : 'activation';
+                    itemToConvert.date = appState.date;
+                    
+                    if (!appState.salesList) appState.salesList = [];
+                    appState.salesList.push(itemToConvert);
+
+                    renderSales();
+                    saveData();
+                }
             }
         }
 
@@ -843,13 +945,13 @@
             tbody.innerHTML = '';
 
             if (kpi) kpi.innerText = setupList.length;
-            if (badge) badge.innerText = `${setupList.length} Deals en Setup`;
+            if (badge) badge.innerText = `${setupList.length} Deals en Setup Acumulados`;
 
             if (setupList.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="py-4 text-center text-xs text-slate-500 italic">
-                            No hay cuentas ni upsells en Setup para ${selectedMonth}.
+                            No hay cuentas ni upsells pendientes en Setup.
                         </td>
                     </tr>
                 `;
@@ -868,8 +970,8 @@
                         <td class="py-2.5 px-3">${dealTag}</td>
                         <td class="py-2.5 px-3 text-right font-bold text-slate-300">$${sale.amount.toFixed(2)} USD</td>
                         <td class="py-2.5 px-3 text-center">
-                            <button onclick="convertSetupToActivation('${sale.id}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition text-[11px] border border-purple-400 flex items-center gap-1 mx-auto">
-                                <i class="fa-solid fa-rocket"></i> Activar Hoy
+                            <button onclick="convertSetupToActivation('${sale.id}', '${sale.date}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition text-[11px] border border-purple-400 flex items-center gap-1 mx-auto">
+                                <i class="fa-solid fa-rocket"></i> Activar Hoy (${appState.date})
                             </button>
                         </td>
                     `;
@@ -1021,7 +1123,7 @@
                 ["Ingreso Hoteles Recurrentes ($12/m)", `$${(globalSettings.recurrentHotels * 12).toFixed(2)} USD`],
                 ["Comisiones One-Time del Mes", `$${monthlyData.amount.toFixed(2)} USD`],
                 ["Nuevas Activaciones Logradas Este Mes", monthlyData.activations],
-                ["Deals en Setup (Nuevos + Upsells en proceso)", monthlyData.setupPipeline.length],
+                ["Deals en Setup Acumulados (Global)", monthlyData.setupPipeline.length],
                 ["Upsells / Módulos Extras Sold Este Mes", monthlyData.upsells],
                 ["Bono Activaciones Cobrado (Mes Previo)", document.getElementById('activationBonusDisplay').innerText],
                 ["------------------------------------", "--------------------"],
@@ -1075,7 +1177,7 @@
                         <span class="text-2xl font-black text-purple-400">${monthlyData.activations}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
-                        <span class="block text-[10px] text-slate-400 uppercase">Deals en Setup</span>
+                        <span class="block text-[10px] text-slate-400 uppercase">Deals en Setup (Global)</span>
                         <span class="text-2xl font-black text-cyan-400">${monthlyData.setupPipeline.length}</span>
                     </div>
                     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
