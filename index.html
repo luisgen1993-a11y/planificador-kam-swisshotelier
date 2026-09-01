@@ -422,13 +422,12 @@
             salesList: []
         };
 
-        let selectedMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+        let selectedMonth = new Date().toISOString().substring(0, 7);
         let monthlyRemoteList = [];
-        let allRemoteHistory = []; // Almacena todo el histórico cargado para búsqueda global de Setup
+        let allRemoteHistory = [];
         let globalSettings = { recurrentHotels: 50 };
-        let isFetchingRemote = false;
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             loadGlobalSettings();
             
             const datePicker = document.getElementById('datePicker');
@@ -439,7 +438,7 @@
 
             document.getElementById('activeDateBadge').innerText = appState.date;
 
-            datePicker.addEventListener('change', (e) => {
+            datePicker.addEventListener('change', async (e) => {
                 appState.date = e.target.value;
                 document.getElementById('activeDateBadge').innerText = appState.date;
                 const newMonth = appState.date.substring(0, 7);
@@ -448,15 +447,15 @@
                     selectedMonth = newMonth;
                     monthPicker.value = selectedMonth;
                 }
-                loadDataForDate();
+                await loadDataForDate();
             });
 
-            monthPicker.addEventListener('change', (e) => {
+            monthPicker.addEventListener('change', async (e) => {
                 selectedMonth = e.target.value;
-                loadMonthlyDataOnly();
+                await loadMonthlyDataOnly();
             });
             
-            loadDataForDate();
+            await loadDataForDate();
         });
 
         function setCloudStatus(status) {
@@ -489,7 +488,6 @@
         }
 
         async function loadDataForDate() {
-            isFetchingRemote = true;
             setCloudStatus('syncing');
             const localKey = `swiss_kam_checklist_${appState.date}`;
             
@@ -514,8 +512,6 @@
                 const savedLocal = localStorage.getItem(localKey);
                 appState = savedLocal ? JSON.parse(savedLocal) : { date: appState.date, completedTasks: {}, salesList: [] };
                 setCloudStatus('error');
-            } finally {
-                isFetchingRemote = false;
             }
 
             if (!appState.completedTasks) appState.completedTasks = {};
@@ -543,16 +539,19 @@
         }
 
         async function fetchMonthlyData() {
-            const monthRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${selectedMonth}`);
-            if (monthRes.ok) {
-                const mData = await monthRes.json();
-                monthlyRemoteList = mData.monthlyData || [];
-                
-                // Unificar lista remota en el histórico global para auditoría de Setups
-                monthlyRemoteList.forEach(item => {
-                    const exists = allRemoteHistory.some(h => h.id === item.id);
-                    if (!exists) allRemoteHistory.push(item);
-                });
+            try {
+                const monthRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${selectedMonth}`);
+                if (monthRes.ok) {
+                    const mData = await monthRes.json();
+                    monthlyRemoteList = mData.monthlyData || [];
+                    
+                    monthlyRemoteList.forEach(item => {
+                        const exists = allRemoteHistory.some(h => h.id === item.id);
+                        if (!exists) allRemoteHistory.push(item);
+                    });
+                }
+            } catch (err) {
+                console.error("Error consultando datos mensuales:", err);
             }
         }
 
@@ -642,7 +641,7 @@
             });
         }
 
-        function handleAddSale(e) {
+        async function handleAddSale(e) {
             e.preventDefault();
             const clientInput = document.getElementById('saleClient');
             const amountInput = document.getElementById('saleAmount');
@@ -663,17 +662,20 @@
             renderSales();
             renderSetupPipelineTable();
             renderMonthlySalesTable();
-            updateCommissions();
-            syncWithCloud();
+            await updateCommissions();
+            await syncWithCloud();
         }
 
-        function deleteSale(id) {
+        async function deleteSale(id) {
             appState.salesList = appState.salesList.filter(s => s.id !== id);
+            allRemoteHistory = allRemoteHistory.filter(s => s.id !== id);
+            monthlyRemoteList = monthlyRemoteList.filter(s => s.id !== id);
+            
             renderSales();
             renderSetupPipelineTable();
             renderMonthlySalesTable();
-            updateCommissions();
-            syncWithCloud();
+            await updateCommissions();
+            await syncWithCloud();
         }
 
         function renderSales() {
@@ -727,7 +729,6 @@
             badge.innerText = `$${dailyTotal.toFixed(2)} USD Cobrado Hoy`;
         }
 
-        // Renderiza el Pipeline Global de Cuentas en Setup (reúne locales + remotas)
         function renderSetupPipelineTable() {
             const tbody = document.getElementById('setupPipelineTableBody');
             const badge = document.getElementById('setupPipelineBadge');
@@ -736,14 +737,12 @@
 
             let setupDealsMap = new Map();
 
-            // 1. Agregar de la historia remota
             allRemoteHistory.forEach(item => {
                 if (item.type === 'setup' || item.type === 'upsell_setup') {
                     setupDealsMap.set(item.id, item);
                 }
             });
 
-            // 2. Agregar del día local actual
             appState.salesList.forEach(item => {
                 if (item.type === 'setup' || item.type === 'upsell_setup') {
                     setupDealsMap.set(item.id, item);
@@ -783,16 +782,13 @@
             });
         }
 
-        // Transforma un Setup en Activación/Upsell directo asociado al día seleccionado en la UI
         async function activateSetupDeal(dealId) {
-            // Buscar si está local
             let deal = appState.salesList.find(s => s.id === dealId);
             
             if (deal) {
                 deal.type = (deal.type === 'setup') ? 'activation' : 'upsell';
-                deal.date = appState.date; // Se mueve a la fecha de activación real
+                deal.date = appState.date;
             } else {
-                // Si no estaba en el estado local, lo buscamos en el histórico remoto
                 let remoteDeal = allRemoteHistory.find(h => h.id === dealId);
                 if (remoteDeal) {
                     const activatedDeal = {
@@ -810,10 +806,9 @@
             renderSetupPipelineTable();
             renderMonthlySalesTable();
             await updateCommissions();
-            syncWithCloud();
+            await syncWithCloud();
         }
 
-        // Renderiza el consolidado oficial de ventas/activaciones del mes seleccionado
         function renderMonthlySalesTable() {
             const tbody = document.getElementById('monthlySalesTableBody');
             const titleMonth = document.getElementById('selectedMonthTitle');
@@ -824,14 +819,12 @@
 
             let monthlySalesMap = new Map();
 
-            // Cargar de remotos del mes
             monthlyRemoteList.forEach(item => {
                 if (item.type === 'activation' || item.type === 'upsell') {
                     monthlySalesMap.set(item.id, item);
                 }
             });
 
-            // Sobrescribir/incluir de la app actual si coinciden con el mes seleccionado
             if (appState.date.substring(0, 7) === selectedMonth) {
                 appState.salesList.forEach(item => {
                     if (item.type === 'activation' || item.type === 'upsell') {
@@ -935,7 +928,6 @@
             document.getElementById('activationsCount').innerText = monthlyActivations;
             document.getElementById('upsellsCount').innerText = monthlyUpsells;
 
-            // Verificación Bono $200
             const noteEl = document.getElementById('activationsProgressNote');
             if (monthlyActivations >= 4) {
                 noteEl.innerText = '¡Meta de 4 Lograda! ($200 cobrados el prox mes)';
@@ -945,7 +937,6 @@
                 noteEl.className = 'text-xs text-purple-300/80 mt-2';
             }
 
-            // Calculamos Bono de Activaciones del Mes Previo
             let previousMonthBonus = 0;
             let prevYear = parseInt(selectedMonth.split('-')[0]);
             let prevMonthNum = parseInt(selectedMonth.split('-')[1]) - 1;
@@ -969,7 +960,6 @@
                 console.warn('Error obteniendo bono mes anterior:', e);
             }
 
-            // Actualización UI Calculadora
             const recurrentHotels = globalSettings.recurrentHotels || 0;
             const recurrentIncome = recurrentHotels * 12;
 
@@ -980,16 +970,14 @@
             document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('activationBonusNote').innerText = previousMonthBonus > 0 ? `Ganado en ${prevMonthStr}` : `No alcanzado en ${prevMonthStr}`;
 
-            const totalFixedBase = 1066.00; // $1016 + $50
+            const totalFixedBase = 1066.00;
             const totalMonthlyIncome = totalFixedBase + recurrentIncome + oneTimeCommissionsSum + previousMonthBonus;
 
             document.getElementById('totalMonthlyIncomeDisplay').innerHTML = `$${totalMonthlyIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="text-xs text-slate-500 font-normal">USD</span>`;
 
-            // Cálculo tarifa por hora (160 horas laborales al mes)
             const hourlyRate = totalMonthlyIncome / 160;
             document.getElementById('hourlyRateDisplay').innerText = `$${hourlyRate.toFixed(2)} / hr`;
 
-            // Progreso hacia Meta ($4,583.33 USD)
             const targetMonthly = 4583.33;
             const targetPercent = Math.min(Math.round((totalMonthlyIncome / targetMonthly) * 100), 100);
 
@@ -997,7 +985,7 @@
             document.getElementById('targetProgressBar').style.width = `${targetPercent}%`;
         }
 
-        function resetDay() {
+        async function resetDay() {
             if (confirm('¿Desea reiniciar las tareas y negocios registrados para este día?')) {
                 appState.completedTasks = {};
                 appState.salesList = [];
@@ -1006,8 +994,8 @@
                 renderSetupPipelineTable();
                 renderMonthlySalesTable();
                 updateMetrics();
-                updateCommissions();
-                syncWithCloud();
+                await updateCommissions();
+                await syncWithCloud();
             }
         }
 
@@ -1103,7 +1091,6 @@
 
             const wb = XLSX.utils.book_new();
 
-            // Hoja 1: Resumen Diario
             let summaryData = [
                 ["Métrica", "Valor"],
                 ["Fecha", appState.date],
@@ -1114,7 +1101,6 @@
             const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
             XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Diario");
 
-            // Hoja 2: Negocios del Día
             let salesHeader = [["ID", "Fecha", "Cliente / Hotel", "Tipo", "Monto (USD)"]];
             let salesRows = appState.salesList.map(s => [s.id, s.date, s.client, s.type, s.amount]);
             const wsSales = XLSX.utils.aoa_to_sheet(salesHeader.concat(salesRows));
