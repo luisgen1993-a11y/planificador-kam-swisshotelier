@@ -783,25 +783,54 @@
         }
 
         async function activateSetupDeal(dealId) {
-            let deal = appState.salesList.find(s => s.id === dealId);
+            setCloudStatus('syncing');
+        
+            // 1. Buscar la información del deal
+            let originalDeal = appState.salesList.find(s => s.id === dealId) || allRemoteHistory.find(h => h.id === dealId);
             
-            if (deal) {
-                deal.type = (deal.type === 'setup') ? 'activation' : 'upsell';
-                deal.date = appState.date;
-            } else {
-                let remoteDeal = allRemoteHistory.find(h => h.id === dealId);
-                if (remoteDeal) {
-                    const activatedDeal = {
-                        id: remoteDeal.id,
-                        client: remoteDeal.client,
-                        amount: remoteDeal.amount,
-                        type: remoteDeal.type === 'setup' ? 'activation' : 'upsell',
-                        date: appState.date
-                    };
-                    appState.salesList.push(activatedDeal);
+            if (!originalDeal) return;
+        
+            const originalDate = originalDeal.date;
+            const newType = originalDeal.type === 'setup' ? 'activation' : 'upsell';
+        
+            // 2. Si el deal estaba registrado en el día actual
+            if (originalDate === appState.date) {
+                let dealInState = appState.salesList.find(s => s.id === dealId);
+                if (dealInState) {
+                    dealInState.type = newType;
                 }
+            } else {
+                // 3. Si venía de una fecha anterior, debemos eliminarlo de esa fecha remota en Google Sheets
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            action: 'deleteSale',
+                            id: dealId,
+                            date: originalDate
+                        })
+                    });
+                } catch (err) {
+                    console.error('Error eliminando setup de fecha anterior:', err);
+                }
+        
+                // Removerlo de la memoria local histórica
+                allRemoteHistory = allRemoteHistory.filter(h => h.id !== dealId);
+                monthlyRemoteList = monthlyRemoteList.filter(m => m.id !== dealId);
+        
+                // Agregar el nuevo deal activado a la fecha actual
+                const activatedDeal = {
+                    id: originalDeal.id,
+                    client: originalDeal.client,
+                    amount: originalDeal.amount,
+                    type: newType,
+                    date: appState.date
+                };
+                appState.salesList.push(activatedDeal);
             }
-
+        
+            // 4. Renderizar vista local y sincronizar el día actual con Google Sheets via POST
             renderSales();
             renderSetupPipelineTable();
             renderMonthlySalesTable();
