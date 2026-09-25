@@ -81,7 +81,7 @@
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
-                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Activaciones del Mes</div>
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Activaciones Mes Calendario</div>
                 <div class="flex items-baseline justify-between">
                     <span id="activationsCount" class="text-3xl font-extrabold text-purple-400">0</span>
                     <span class="text-xs font-bold text-slate-400">/ 4 Meta</span>
@@ -90,7 +90,7 @@
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
-                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Upsells del Mes</div>
+                <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Upsells Mes Calendario</div>
                 <div class="flex items-baseline justify-between">
                     <span id="upsellsCount" class="text-3xl font-extrabold text-amber-400">0</span>
                     <i class="fa-solid fa-bolt text-amber-500/40 text-xl"></i>
@@ -105,16 +105,16 @@
                 <div>
                     <div class="flex items-center gap-3 flex-wrap">
                         <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                            <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Mensual & Proyección
+                            <i class="fa-solid fa-calculator text-emerald-400"></i> Resumen Planilla & Proyección
                         </h2>
                         
                         <div class="flex items-center bg-slate-900 border border-emerald-500/50 rounded-lg px-2.5 py-1 gap-2 shadow-inner">
                             <i class="fa-solid fa-calendar-days text-emerald-400 text-xs"></i>
-                            <span class="text-xs text-slate-400 font-semibold">Consultar Mes:</span>
+                            <span class="text-xs text-slate-400 font-semibold">Planilla Pago 25 De:</span>
                             <input type="month" id="monthPicker" class="bg-transparent text-sm font-bold text-emerald-300 focus:outline-none cursor-pointer">
                         </div>
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Cálculo consolidado recuperado en vivo desde la nube para el mes seleccionado</p>
+                    <p class="text-xs text-slate-400 mt-1">Cierre Contable Ventas: <span id="payPeriodRangeDisplay" class="text-emerald-300 font-mono">--</span></p>
                 </div>
                 <div class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-right">
                     <div class="text-xs text-slate-400">Tarifa Efectiva Mensual</div>
@@ -139,21 +139,21 @@
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Comisiones Mes (Activaciones / Upsells)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Comisiones Planilla (26 Al 25)</label>
                     <div id="oneTimeIncomeDisplay" class="text-lg font-bold text-amber-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
-                    <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 cobros en el mes</span>
+                    <span id="oneTimeCountDisplay" class="text-[10px] text-slate-400">0 cobros incluidos</span>
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Bono Activaciones (Mes Ant.)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Bono Activaciones (Mes Cal. Ant.)</label>
                     <div id="activationBonusDisplay" class="text-lg font-bold text-purple-400">$0.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
                     <span id="activationBonusNote" class="text-[10px] text-slate-500">Logro del mes previo</span>
                 </div>
 
                 <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
-                    <label class="block text-xs text-slate-400 mb-1">Total Ingresos Est. Mes</label>
+                    <label class="block text-xs text-slate-400 mb-1">Total Depósito Estimado (Día 25)</label>
                     <div id="totalMonthlyIncomeDisplay" class="text-lg font-black text-emerald-400">$1,666.00 <span class="text-xs text-slate-500 font-normal">USD</span></div>
-                    <span class="text-[10px] text-slate-400">Suma total acumulada</span>
+                    <span class="text-[10px] text-slate-400">Deposito real esperado</span>
                 </div>
             </div>
 
@@ -267,9 +267,9 @@
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                 <div>
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones Oficiales del Mes (<span id="selectedMonthTitle">--</span>)
+                        <i class="fa-solid fa-list-check text-purple-400"></i> Ventas & Activaciones en Planilla (<span id="selectedMonthTitle">--</span>)
                     </h2>
-                    <p class="text-xs text-slate-400">Histórico de proyectos activados y cobrados en el periodo seleccionado</p>
+                    <p class="text-xs text-slate-400">Comisiones de ventas/upsells incluidas en la transferencia del 25. Si la administración omitió un pago, márcalo como diferido.</p>
                 </div>
                 <span id="monthlySalesSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
                     $0.00 USD Acumulado
@@ -280,10 +280,11 @@
                 <table class="w-full text-left text-sm">
                     <thead>
                         <tr class="text-xs text-slate-400 border-b border-slate-700 uppercase tracking-wider bg-slate-900/40">
-                            <th class="py-2.5 px-3">Fecha de Activación</th>
+                            <th class="py-2.5 px-3">Fecha Go-Live</th>
                             <th class="py-2.5 px-3">Cliente / Hotel</th>
                             <th class="py-2.5 px-3">Tipo</th>
-                            <th class="py-2.5 px-3 text-right">Comisión (USD)</th>
+                            <th class="py-2.5 px-3 text-right">Comisión</th>
+                            <th class="py-2.5 px-3 text-center">Estado Contable</th>
                         </tr>
                     </thead>
                     <tbody id="monthlySalesTableBody" class="divide-y divide-slate-700/50">
@@ -457,6 +458,50 @@
             
             await loadDataForDate();
         });
+
+        // Calculador de rango de fecha de corte para el mes seleccionado (26 del mes anterior al 25)
+        function getPayPeriodDates(yearMonthStr) {
+            const [y, m] = yearMonthStr.split('-').map(Number);
+            
+            let prevY = y;
+            let prevM = m - 1;
+            if (prevM === 0) {
+                prevM = 12;
+                prevY -= 1;
+            }
+            const startDateStr = `${prevY}-${String(prevM).padStart(2, '0')}-26`;
+            const endDateStr = `${y}-${String(m).padStart(2, '0')}-25`;
+
+            return {
+                startStr: startDateStr,
+                endStr: endDateStr,
+                startDate: new Date(startDateStr + 'T00:00:00'),
+                endDate: new Date(endDateStr + 'T23:59:59')
+            };
+        }
+
+        // Evalúa si una venta pertenece al periodo de pago de un mes determinado
+        function isSaleInPayPeriod(sale, targetMonthStr) {
+            if (!sale.date) return false;
+            
+            // Si el pago fue diferido manualmente al siguiente mes
+            if (sale.deferredToNextMonth) {
+                const [y, m] = sale.date.substring(0, 7).split('-').map(Number);
+                let nextY = y;
+                let nextM = m + 1;
+                if (nextM > 12) {
+                    nextM = 1;
+                    nextY += 1;
+                }
+                const deferredMonthStr = `${nextY}-${String(nextM).padStart(2, '0')}`;
+                return deferredMonthStr === targetMonthStr;
+            }
+
+            const period = getPayPeriodDates(targetMonthStr);
+            const saleDate = new Date(sale.date + 'T12:00:00');
+
+            return saleDate >= period.startDate && saleDate <= period.endDate;
+        }
 
         function setCloudStatus(status) {
             const el = document.getElementById('cloudStatus');
@@ -652,7 +697,8 @@
                 client: clientInput.value.trim(),
                 amount: parseFloat(amountInput.value) || 0,
                 type: typeInput.value,
-                date: appState.date
+                date: appState.date,
+                deferredToNextMonth: false
             };
 
             appState.salesList.push(sale);
@@ -673,6 +719,24 @@
             
             renderSales();
             renderSetupPipelineTable();
+            renderMonthlySalesTable();
+            await updateCommissions();
+            await syncWithCloud();
+        }
+
+        // Alterna el estado de pago de una comisión (Diferido vs Normal)
+        async function toggleDeferSale(saleId) {
+            let sale = appState.salesList.find(s => s.id === saleId);
+            if (!sale) {
+                sale = allRemoteHistory.find(h => h.id === saleId);
+                if (sale) {
+                    sale.deferredToNextMonth = !sale.deferredToNextMonth;
+                    appState.salesList.push(sale);
+                }
+            } else {
+                sale.deferredToNextMonth = !sale.deferredToNextMonth;
+            }
+
             renderMonthlySalesTable();
             await updateCommissions();
             await syncWithCloud();
@@ -783,54 +847,26 @@
         }
 
         async function activateSetupDeal(dealId) {
-            setCloudStatus('syncing');
-        
-            // 1. Buscar la información del deal
-            let originalDeal = appState.salesList.find(s => s.id === dealId) || allRemoteHistory.find(h => h.id === dealId);
+            let deal = appState.salesList.find(s => s.id === dealId);
             
-            if (!originalDeal) return;
-        
-            const originalDate = originalDeal.date;
-            const newType = originalDeal.type === 'setup' ? 'activation' : 'upsell';
-        
-            // 2. Si el deal estaba registrado en el día actual
-            if (originalDate === appState.date) {
-                let dealInState = appState.salesList.find(s => s.id === dealId);
-                if (dealInState) {
-                    dealInState.type = newType;
-                }
+            if (deal) {
+                deal.type = (deal.type === 'setup') ? 'activation' : 'upsell';
+                deal.date = appState.date;
             } else {
-                // 3. Si venía de una fecha anterior, debemos eliminarlo de esa fecha remota en Google Sheets
-                try {
-                    await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({
-                            action: 'deleteSale',
-                            id: dealId,
-                            date: originalDate
-                        })
-                    });
-                } catch (err) {
-                    console.error('Error eliminando setup de fecha anterior:', err);
+                let remoteDeal = allRemoteHistory.find(h => h.id === dealId);
+                if (remoteDeal) {
+                    const activatedDeal = {
+                        id: remoteDeal.id,
+                        client: remoteDeal.client,
+                        amount: remoteDeal.amount,
+                        type: remoteDeal.type === 'setup' ? 'activation' : 'upsell',
+                        date: appState.date,
+                        deferredToNextMonth: false
+                    };
+                    appState.salesList.push(activatedDeal);
                 }
-        
-                // Removerlo de la memoria local histórica
-                allRemoteHistory = allRemoteHistory.filter(h => h.id !== dealId);
-                monthlyRemoteList = monthlyRemoteList.filter(m => m.id !== dealId);
-        
-                // Agregar el nuevo deal activado a la fecha actual
-                const activatedDeal = {
-                    id: originalDeal.id,
-                    client: originalDeal.client,
-                    amount: originalDeal.amount,
-                    type: newType,
-                    date: appState.date
-                };
-                appState.salesList.push(activatedDeal);
             }
-        
-            // 4. Renderizar vista local y sincronizar el día actual con Google Sheets via POST
+
             renderSales();
             renderSetupPipelineTable();
             renderMonthlySalesTable();
@@ -842,40 +878,46 @@
             const tbody = document.getElementById('monthlySalesTableBody');
             const titleMonth = document.getElementById('selectedMonthTitle');
             const badge = document.getElementById('monthlySalesSummaryBadge');
+            const payPeriodRange = document.getElementById('payPeriodRangeDisplay');
             
+            const period = getPayPeriodDates(selectedMonth);
+            if (payPeriodRange) payPeriodRange.innerText = `${period.startStr} a ${period.endStr}`;
             if (titleMonth) titleMonth.innerText = selectedMonth;
+            
             tbody.innerHTML = '';
 
             let monthlySalesMap = new Map();
 
-            monthlyRemoteList.forEach(item => {
-                if (item.type === 'activation' || item.type === 'upsell') {
+            allRemoteHistory.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
                     monthlySalesMap.set(item.id, item);
                 }
             });
 
-            if (appState.date.substring(0, 7) === selectedMonth) {
-                appState.salesList.forEach(item => {
-                    if (item.type === 'activation' || item.type === 'upsell') {
-                        monthlySalesMap.set(item.id, item);
-                    }
-                });
-            }
+            appState.salesList.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
+                    monthlySalesMap.set(item.id, item);
+                }
+            });
 
             const monthList = Array.from(monthlySalesMap.values());
             let totalMonthAmount = monthList.reduce((acc, s) => acc + s.amount, 0);
 
             if (monthList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-xs text-slate-500">No existen activaciones u upsells confirmados para ${selectedMonth}.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">No existen comisiones aplicables a la planilla del 25 de ${selectedMonth}.</td></tr>`;
                 badge.innerText = '$0.00 USD Acumulado';
                 return;
             }
 
-            badge.innerText = `$${totalMonthAmount.toFixed(2)} USD Acumulado`;
+            badge.innerText = `$${totalMonthAmount.toFixed(2)} USD en Planilla`;
 
             monthList.forEach(sale => {
                 let typeBadge = sale.type === 'activation' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
                 let typeLabel = sale.type === 'activation' ? 'Activación PMS' : 'Upsell Módulo';
+
+                let deferBtn = sale.deferredToNextMonth 
+                    ? `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Diferido a Prox. Mes</button>`
+                    : `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-check mr-1"></i>En Planilla Actual</button>`;
 
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-700/30 transition';
@@ -884,6 +926,7 @@
                     <td class="py-2.5 px-3 text-xs text-slate-200 font-bold">${sale.client}</td>
                     <td class="py-2.5 px-3 text-xs"><span class="px-2 py-0.5 rounded-full border text-[11px] ${typeBadge}">${typeLabel}</span></td>
                     <td class="py-2.5 px-3 text-xs font-bold text-right text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                    <td class="py-2.5 px-3 text-xs text-center">${deferBtn}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -932,27 +975,24 @@
         }
 
         async function updateCommissions() {
-            let monthlySalesMap = new Map();
+            // 1. MÉTRICAS DE VENTAS Y BONO $200 (EVALUADAS EN MES CALENDARIO NATURAL: 1 AL 31)
+            let calendarMonthSalesMap = new Map();
 
-            monthlyRemoteList.forEach(item => {
-                if (item.type === 'activation' || item.type === 'upsell') {
-                    monthlySalesMap.set(item.id, item);
+            allRemoteHistory.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && item.date && item.date.substring(0, 7) === selectedMonth) {
+                    calendarMonthSalesMap.set(item.id, item);
                 }
             });
 
-            if (appState.date.substring(0, 7) === selectedMonth) {
-                appState.salesList.forEach(item => {
-                    if (item.type === 'activation' || item.type === 'upsell') {
-                        monthlySalesMap.set(item.id, item);
-                    }
-                });
-            }
+            appState.salesList.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && item.date && item.date.substring(0, 7) === selectedMonth) {
+                    calendarMonthSalesMap.set(item.id, item);
+                }
+            });
 
-            const monthList = Array.from(monthlySalesMap.values());
-
-            let monthlyActivations = monthList.filter(s => s.type === 'activation').length;
-            let monthlyUpsells = monthList.filter(s => s.type === 'upsell').length;
-            let oneTimeCommissionsSum = monthList.reduce((acc, s) => acc + s.amount, 0);
+            const calendarMonthList = Array.from(calendarMonthSalesMap.values());
+            let monthlyActivations = calendarMonthList.filter(s => s.type === 'activation').length;
+            let monthlyUpsells = calendarMonthList.filter(s => s.type === 'upsell').length;
 
             document.getElementById('activationsCount').innerText = monthlyActivations;
             document.getElementById('upsellsCount').innerText = monthlyUpsells;
@@ -966,6 +1006,7 @@
                 noteEl.className = 'text-xs text-purple-300/80 mt-2';
             }
 
+            // Calculamos Bono de Activaciones del Mes Calendario Previo
             let previousMonthBonus = 0;
             let prevYear = parseInt(selectedMonth.split('-')[0]);
             let prevMonthNum = parseInt(selectedMonth.split('-')[1]) - 1;
@@ -973,14 +1014,15 @@
                 prevMonthNum = 12;
                 prevYear -= 1;
             }
-            let prevMonthStr = `${prevYear}-${prevMonthNum.toString().padStart(2, '0')}`;
+            let prevMonthStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
 
             try {
                 const prevRes = await fetch(`${SCRIPT_URL}?action=getMonthlyData&month=${prevMonthStr}`);
                 if (prevRes.ok) {
                     const prevData = await prevRes.json();
                     let prevList = prevData.monthlyData || [];
-                    let prevActivationsCount = prevList.filter(s => s.type === 'activation').length;
+                    
+                    let prevActivationsCount = prevList.filter(s => s.type === 'activation' && s.date && s.date.substring(0, 7) === prevMonthStr).length;
                     if (prevActivationsCount >= 4) {
                         previousMonthBonus = 200;
                     }
@@ -989,12 +1031,30 @@
                 console.warn('Error obteniendo bono mes anterior:', e);
             }
 
+            // 2. MONTO DE TRANSFERENCIA PLANILLA (EVALUADO EN PERIODO DE CORTE: 26 AL 25)
+            let payPeriodSalesMap = new Map();
+
+            allRemoteHistory.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
+                    payPeriodSalesMap.set(item.id, item);
+                }
+            });
+
+            appState.salesList.forEach(item => {
+                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
+                    payPeriodSalesMap.set(item.id, item);
+                }
+            });
+
+            const payPeriodList = Array.from(payPeriodSalesMap.values());
+            let oneTimeCommissionsSum = payPeriodList.reduce((acc, s) => acc + s.amount, 0);
+
             const recurrentHotels = globalSettings.recurrentHotels || 0;
             const recurrentIncome = recurrentHotels * 12;
 
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeCommissionsSum.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${monthList.length} cobros en ${selectedMonth}`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${payPeriodList.length} cobros incluidos`;
             
             document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('activationBonusNote').innerText = previousMonthBonus > 0 ? `Ganado en ${prevMonthStr}` : `No alcanzado en ${prevMonthStr}`;
