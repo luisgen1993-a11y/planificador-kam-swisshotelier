@@ -480,22 +480,9 @@
             };
         }
 
-        // Evalúa si una venta pertenece al periodo de pago de un mes determinado
+        // Evalúa si una venta se originó dentro del periodo de corte (26 al 25)
         function isSaleInPayPeriod(sale, targetMonthStr) {
             if (!sale.date) return false;
-            
-            // Si el pago fue diferido manualmente al siguiente mes
-            if (sale.deferredToNextMonth) {
-                const [y, m] = sale.date.substring(0, 7).split('-').map(Number);
-                let nextY = y;
-                let nextM = m + 1;
-                if (nextM > 12) {
-                    nextM = 1;
-                    nextY += 1;
-                }
-                const deferredMonthStr = `${nextY}-${String(nextM).padStart(2, '0')}`;
-                return deferredMonthStr === targetMonthStr;
-            }
 
             const period = getPayPeriodDates(targetMonthStr);
             const saleDate = new Date(sale.date + 'T12:00:00');
@@ -901,7 +888,9 @@
             });
 
             const monthList = Array.from(monthlySalesMap.values());
-            let totalMonthAmount = monthList.reduce((acc, s) => acc + s.amount, 0);
+
+            // Solo sumamos las comisiones que NO han sido diferidas
+            let totalMonthAmount = monthList.reduce((acc, s) => s.deferredToNextMonth ? acc : acc + s.amount, 0);
 
             if (monthList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">No existen comisiones aplicables a la planilla del 25 de ${selectedMonth}.</td></tr>`;
@@ -916,16 +905,16 @@
                 let typeLabel = sale.type === 'activation' ? 'Activación PMS' : 'Upsell Módulo';
 
                 let deferBtn = sale.deferredToNextMonth 
-                    ? `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Diferido a Prox. Mes</button>`
-                    : `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-check mr-1"></i>En Planilla Actual</button>`;
+                    ? `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Diferido a Prox. Mes</button>`
+                    : `<button onclick="toggleDeferSale('${sale.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition"><i class="fa-solid fa-check mr-1"></i>En Planilla Actual</button>`;
 
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-700/30 transition';
+                tr.className = sale.deferredToNextMonth ? 'hover:bg-slate-700/30 transition opacity-60' : 'hover:bg-slate-700/30 transition';
                 tr.innerHTML = `
                     <td class="py-2.5 px-3 text-xs text-slate-400 font-mono">${sale.date}</td>
                     <td class="py-2.5 px-3 text-xs text-slate-200 font-bold">${sale.client}</td>
                     <td class="py-2.5 px-3 text-xs"><span class="px-2 py-0.5 rounded-full border text-[11px] ${typeBadge}">${typeLabel}</span></td>
-                    <td class="py-2.5 px-3 text-xs font-bold text-right text-emerald-400">$${sale.amount.toFixed(2)}</td>
+                    <td class="py-2.5 px-3 text-xs font-bold text-right ${sale.deferredToNextMonth ? 'text-slate-400 line-through' : 'text-emerald-400'}">$${sale.amount.toFixed(2)}</td>
                     <td class="py-2.5 px-3 text-xs text-center">${deferBtn}</td>
                 `;
                 tbody.appendChild(tr);
@@ -1031,30 +1020,49 @@
                 console.warn('Error obteniendo bono mes anterior:', e);
             }
 
-            // 2. MONTO DE TRANSFERENCIA PLANILLA (EVALUADO EN PERIODO DE CORTE: 26 AL 25)
+            // 2. MONTO DE TRANSFERENCIA PLANILLA (INCLUYE VENTAS DEL PERIODO ACTUAL NO DIFERIDAS + VENTAS DIFERIDAS DEL MES ANTERIOR)
             let payPeriodSalesMap = new Map();
 
             allRemoteHistory.forEach(item => {
-                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
+                if (item.type === 'activation' || item.type === 'upsell') {
                     payPeriodSalesMap.set(item.id, item);
                 }
             });
 
             appState.salesList.forEach(item => {
-                if ((item.type === 'activation' || item.type === 'upsell') && isSaleInPayPeriod(item, selectedMonth)) {
+                if (item.type === 'activation' || item.type === 'upsell') {
                     payPeriodSalesMap.set(item.id, item);
                 }
             });
 
-            const payPeriodList = Array.from(payPeriodSalesMap.values());
-            let oneTimeCommissionsSum = payPeriodList.reduce((acc, s) => acc + s.amount, 0);
+            const allSalesList = Array.from(payPeriodSalesMap.values());
+
+            // Sumar solo comisiones activas en el periodo actual + diferidas arrastradas
+            let oneTimeCommissionsSum = 0;
+            let validCount = 0;
+
+            allSalesList.forEach(s => {
+                const inCurrentPeriod = isSaleInPayPeriod(s, selectedMonth);
+                if (inCurrentPeriod && !s.deferredToNextMonth) {
+                    oneTimeCommissionsSum += s.amount;
+                    validCount++;
+                } else if (!inCurrentPeriod && s.deferredToNextMonth) {
+                    // Verificar si fue diferida exactamente del periodo anterior
+                    const saleDate = new Date(s.date + 'T12:00:00');
+                    const currentPeriod = getPayPeriodDates(selectedMonth);
+                    if (saleDate < currentPeriod.startDate) {
+                        oneTimeCommissionsSum += s.amount;
+                        validCount++;
+                    }
+                }
+            });
 
             const recurrentHotels = globalSettings.recurrentHotels || 0;
             const recurrentIncome = recurrentHotels * 12;
 
             document.getElementById('recurrentIncomeDisplay').innerText = `=$${recurrentIncome.toFixed(2)} USD`;
             document.getElementById('oneTimeIncomeDisplay').innerHTML = `$${oneTimeCommissionsSum.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
-            document.getElementById('oneTimeCountDisplay').innerText = `${payPeriodList.length} cobros incluidos`;
+            document.getElementById('oneTimeCountDisplay').innerText = `${validCount} cobros incluidos`;
             
             document.getElementById('activationBonusDisplay').innerHTML = `$${previousMonthBonus.toFixed(2)} <span class="text-xs text-slate-500 font-normal">USD</span>`;
             document.getElementById('activationBonusNote').innerText = previousMonthBonus > 0 ? `Ganado en ${prevMonthStr}` : `No alcanzado en ${prevMonthStr}`;
