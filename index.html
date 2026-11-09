@@ -551,13 +551,19 @@
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error(`Respuesta inesperada de Google: ${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)}`);
+            }
             if (data.status === 'error') {
                 if (data.code === 'unauthorized') {
                     try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
                     alert('La clave del tablero no es correcta. Te la pediré de nuevo.');
                 }
-                throw new Error(data.message || 'Error del servidor');
+                throw new Error(data.code === 'unauthorized' ? 'Clave incorrecta' : (data.message || 'Error del servidor'));
             }
             return data;
         }
@@ -566,6 +572,14 @@
         let writeChain = Promise.resolve();
         let pendingWrites = 0;
         let lastWriteFailed = false;
+        let lastErrorMessage = '';
+
+        function describeError(action, err) {
+            const msg = String(err && err.message || err);
+            if (msg === 'Failed to fetch') return `${action}: no se pudo conectar con Google (revisa internet o la URL del Apps Script).`;
+            if (msg.startsWith('Unexpected token')) return `${action}: Google respondió algo que no es JSON (¿la implementación es "Cualquier persona"?).`;
+            return `${action}: ${msg}`;
+        }
 
         function enqueueWrite(action, params) {
             pendingWrites++;
@@ -576,6 +590,7 @@
                 .catch(err => {
                     console.error(`Error en ${action}:`, err);
                     lastWriteFailed = true;
+                    lastErrorMessage = describeError(action, err);
                 })
                 .finally(() => {
                     pendingWrites--;
@@ -619,8 +634,16 @@
                 el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
                 el.innerHTML = '<i class="fa-solid fa-cloud-check text-xs mr-1"></i>Conectado a Google';
             } else if (status === 'error') {
-                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
-                el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-xs mr-1"></i>Error Sincro (Local)';
+                el.className = 'ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 cursor-pointer';
+                el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-xs mr-1"></i>Error Sincro (Local) · ver detalle';
+            }
+            el.title = status === 'error' ? lastErrorMessage : '';
+            el.onclick = status === 'error' ? showSyncError : null;
+        }
+
+        function showSyncError() {
+            if (confirm(`No se pudo sincronizar con Google:\n\n${lastErrorMessage || 'Error desconocido'}\n\n¿Reintentar ahora?`)) {
+                loadInitialData();
             }
         }
 
@@ -672,6 +695,7 @@
                 setCloudStatus('saved');
             } catch (err) {
                 console.warn('Usando datos guardados en este navegador:', err);
+                lastErrorMessage = describeError('Carga inicial', err);
                 appState.completedTasks = readCache(`swiss_kam_checklist_${appState.date}`, {});
                 setCloudStatus('error');
             }
@@ -693,6 +717,7 @@
                 setCloudStatus(pendingWrites ? 'syncing' : 'saved');
             } catch (err) {
                 console.warn('Usando tareas guardadas en este navegador:', err);
+                lastErrorMessage = describeError('Cargar día', err);
                 setCloudStatus('error');
             }
             renderAll();
