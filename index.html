@@ -417,13 +417,18 @@
             }
         ];
 
+        // Fecha local (toISOString usa UTC: en Costa Rica, después de las 6 p.m. marcaba el día siguiente)
+        function localDateStr(d = new Date()) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         let appState = {
-            date: new Date().toISOString().split('T')[0],
+            date: localDateStr(),
             completedTasks: {},
             salesList: []
         };
 
-        let selectedMonth = new Date().toISOString().substring(0, 7);
+        let selectedMonth = localDateStr().substring(0, 7);
         let monthlyRemoteList = [];
         let allRemoteHistory = [];
         let globalSettings = { recurrentHotels: 50 };
@@ -681,6 +686,7 @@
 
         function toggleTask(taskId) {
             appState.completedTasks[taskId] = !appState.completedTasks[taskId];
+            renderBlocks();
             updateMetrics();
             syncWithCloud();
         }
